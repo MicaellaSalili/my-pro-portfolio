@@ -1,15 +1,36 @@
+/* Changes the colors and fonts site-wide. */
+
 @import "tailwindcss";
 
 :root {
+  /* Colors */
+  --color-primary: #A386FF;
+  --color-secondary: #737373;
+  --color-background: #F7F5F5;
+  --color-black: #000000;
+  --color-white: #FFFFFF;
+
+  /* Typography */
+  --font-size-h1: 36px;
+  --font-size-h2: 32px;
+  --font-size-h3: 24px;
+  --font-size-h4: 20px;
+  --font-size-h5: 14px;
+
+  /* Light mode */
   --background: #ffffff;
   --foreground: #171717;
 }
 
 @theme inline {
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-background: var(--color-background);
+  --color-black: var(--color-black);
+  --color-white: var(--color-white);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +43,61 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+/* Typography Styles */
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: 700;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: 700;
+}
+
+h3 {
+  font-size: var(--font-size-h3);
+  font-weight: 700;
+}
+
+h4 {
+  font-size: var(--font-size-h4);
+  font-weight: 700;
+}
+
+h5 {
+  font-size: var(--font-size-h5);
+  font-weight: 700;
+}
+
+/* Color Classes for Easy Usage */
+.text-primary {
+  color: var(--color-primary);
+}
+
+.text-secondary {
+  color: var(--color-secondary);
+}
+
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.bg-secondary {
+  background-color: var(--color-secondary);
+}
+
+.bg-brand-light {
+  background-color: var(--color-background);
+}
+
+.bg-fairy-gradient {
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(circle at 7% 14%, color-mix(in srgb, var(--color-primary) 34%, white) 0%, transparent 44%),
+    radial-gradient(circle at 83% 20%, color-mix(in srgb, var(--color-primary) 28%, white) 0%, transparent 42%),
+    radial-gradient(circle at 54% 38%, rgba(255, 255, 255, 0.92) 0%, transparent 46%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-background) 74%, white) 0%, var(--color-background) 68%);
 }
