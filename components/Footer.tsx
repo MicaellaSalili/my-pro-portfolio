@@ -3,6 +3,8 @@
 interface FooterLink {
   label: string;
   href?: string;
+  sectionId?: string;
+  workCategory?: string;
 }
 
 interface FooterProps {
@@ -10,10 +12,43 @@ interface FooterProps {
   worksLinks: FooterLink[];
   aboutLinks: FooterLink[];
   ownerName?: string;
+  onAboutLinkClick?: (sectionId: string) => void;
+  onWorksLinkClick?: (category: string) => void;
 }
 
-export default function Footer({ contactLinks, worksLinks, aboutLinks, ownerName }: FooterProps) {
+export default function Footer({
+  contactLinks,
+  worksLinks,
+  aboutLinks,
+  ownerName,
+  onAboutLinkClick,
+  onWorksLinkClick,
+}: FooterProps) {
   const renderFooterItem = (item: FooterLink) => {
+    if (item.sectionId && onAboutLinkClick) {
+      return (
+        <button
+          type="button"
+          onClick={() => onAboutLinkClick(item.sectionId || "")}
+          className="text-white/90 underline-offset-4 transition-all hover:text-white hover:underline active:text-white active:underline focus-visible:text-white focus-visible:underline"
+        >
+          {item.label}
+        </button>
+      );
+    }
+
+    if (item.workCategory && onWorksLinkClick) {
+      return (
+        <button
+          type="button"
+          onClick={() => onWorksLinkClick(item.workCategory || "")}
+          className="text-white/90 underline-offset-4 transition-all hover:text-white hover:underline active:text-white active:underline focus-visible:text-white focus-visible:underline"
+        >
+          {item.label}
+        </button>
+      );
+    }
+
     if (!item.href) {
       return <span className="text-white/90">{item.label}</span>;
     }
@@ -31,7 +66,7 @@ export default function Footer({ contactLinks, worksLinks, aboutLinks, ownerName
   };
 
   return (
-    <footer className="mx-auto flex w-full max-w-[1440px] flex-col items-center justify-between rounded-tl-[100px] rounded-tr-[100px] bg-primary px-[10px] py-[30px] text-white shadow-[inset_0px_4px_4px_0px_#805eff]">
+    <footer className="mx-auto mt-12 flex w-full max-w-[1440px] flex-col items-center justify-between rounded-tl-[100px] rounded-tr-[100px] bg-primary px-[10px] py-[30px] text-white shadow-[inset_0px_4px_4px_0px_#805eff]">
       <div className="mb-6 h-[4px] w-[305px] rounded-full bg-white/80" />
       <div className="grid w-full max-w-[1200px] grid-cols-1 gap-4 border-b border-white/60 px-8 pb-8 pt-8 md:grid-cols-3">
         <div className="px-[10px]">

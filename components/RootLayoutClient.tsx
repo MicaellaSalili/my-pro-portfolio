@@ -5,6 +5,8 @@ import { createContext, useEffect, useMemo, useState } from "react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import { supabase } from "../lib/supabase";
+import { queueAboutSection } from "../lib/aboutSectionNav";
+import { queueWorksCategory } from "../lib/worksCategoryNav";
 
 interface RootLayoutClientProps {
   children: React.ReactNode;
@@ -25,12 +27,13 @@ interface ProjectCategoryData {
 }
 
 const projectCategoryOrder = [
-  "UI/UX Design",
-  "Website",
+  "Web",
   "Mobile",
   "Software",
-  "Personal Projects",
-  "Client Projects",
+  "System",
+  "Data",
+  "AI/ML",
+  "Cybersecurity",
 ];
 
 function toSlug(value: string) {
@@ -40,10 +43,13 @@ function toSlug(value: string) {
 export const PageContext = createContext<{
   currentPage: string;
   setCurrentPage: (page: string) => void;
+  selectedProjectId: string | null;
+  setSelectedProjectId: (projectId: string | null) => void;
 } | null>(null);
 
 export default function RootLayoutClient({ children }: RootLayoutClientProps) {
   const [currentPage, setCurrentPage] = useState<string>("home");
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [profile, setProfile] = useState<FooterProfileData | null>(null);
   const [projectCategories, setProjectCategories] = useState<ProjectCategoryData[]>([]);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -86,6 +92,10 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
     };
   }, []);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [currentPage]);
+
   const footerContactLinks = [
     { label: "Email", href: profile?.email ? `mailto:${profile.email}` : "" },
     {
@@ -109,22 +119,20 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
       .filter((category) => categoriesFromProjects.has(category))
       .map((category) => ({
         label: category,
-        href: `/?page=works&category=${encodeURIComponent(toSlug(category))}`,
+        workCategory: category,
       }));
   }, [projectCategories]);
 
   const footerAboutLinks = [
-    { label: "Personal Profile" },
-    { label: "Educational Experience" },
-    { label: "Work Experience" },
-    { label: "Resume and CV" },
-    { label: "Technical Skills" },
-    { label: "Tools and Platform" },
-    { label: "Programming Skills" },
+    { label: "Profile", sectionId: "profile" },
+    { label: "Credentials", sectionId: "credentials" },
+    { label: "Experience", sectionId: "experience" },
+    { label: "Tech Stacks", sectionId: "tech-stacks" },
+    { label: "Specializations", sectionId: "specializations" },
   ];
 
   return (
-    <PageContext.Provider value={{ currentPage, setCurrentPage }}>
+    <PageContext.Provider value={{ currentPage, setCurrentPage, selectedProjectId, setSelectedProjectId }}>
       <div className="min-h-screen bg-fairy-gradient font-sans dark:bg-black">
         <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
         <div className="flex justify-center w-full">
@@ -135,6 +143,14 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
               worksLinks={footerWorksLinks}
               aboutLinks={footerAboutLinks}
               ownerName={profile?.name}
+              onAboutLinkClick={(sectionId) => {
+                queueAboutSection(sectionId);
+                setCurrentPage("about");
+              }}
+              onWorksLinkClick={(category) => {
+                queueWorksCategory(category);
+                setCurrentPage("works");
+              }}
             />
           </div>
         </div>

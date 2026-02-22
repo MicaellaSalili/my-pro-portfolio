@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import HeroSection from "./HeroSection";
+import SkillTag from "./SkillTag";
 import { supabase } from "../lib/supabase";
+import { queueWorksTechFilter } from "../lib/worksTechFilter";
 
 interface HomePageProps {
   setCurrentPage: (page: string) => void;
+  onOpenProjectDetails: (projectId: string) => void;
 }
 
 interface ProjectData {
@@ -13,9 +16,16 @@ interface ProjectData {
   title: string;
   description: string;
   thumbnail_url: string;
+  is_featured?: boolean | null;
   category?: string | null;
   live_demo_url?: string;
   github_repo_url?: string;
+  project_skills?: {
+    skill_id?: string;
+    tech_stack?: {
+      skill_name?: string | null;
+    } | null;
+  }[];
 }
 
 interface MilestoneData {
@@ -46,6 +56,13 @@ interface FooterProfileData {
   hero_title?: string;
   hero_sub_headline?: string;
   profile_image_url?: string;
+  resume_download_url?: string;
+  github_url?: string;
+  linkedin_url?: string;
+  email?: string;
+  viber_number?: string;
+  facebook_url?: string;
+  instagram_url?: string;
 }
 
 function RevealOnScroll({
@@ -100,40 +117,140 @@ let cachedHomeProfile: FooterProfileData | null = null;
 const homeProfileStorageKey = "home_profile_cache_v1";
 
 const imgSpecRedesign = "/assets/home/spec-redesign.svg";
-const imgProjectPlaceholder = "/assets/home/project-placeholder.svg";
 const imgArrowFilled = "/assets/hero/icon-arrow.svg";
+
+function ProjectImageIcon() {
+  return (
+    <svg
+      width="84"
+      height="84"
+      viewBox="0 0 84 84"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className="h-[84px] w-[84px]"
+    >
+      <rect x="4" y="8" width="76" height="68" rx="9" stroke="#292929" strokeWidth="3" />
+      <circle cx="28" cy="28" r="6" stroke="#292929" strokeWidth="3" />
+      <path d="M11 74L58.5 34L80 57" stroke="#292929" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function ProjectCard({
   project,
-  wide,
+  onClickSkillTag,
+  onOpenProjectDetails,
 }: {
   project: ProjectData;
-  wide?: boolean;
+  onClickSkillTag: (skill: string) => void;
+  onOpenProjectDetails: (projectId: string) => void;
 }) {
+  const [showAllTech, setShowAllTech] = useState(false);
+
+  function parseTechStack(value?: string | null) {
+    if (!value) {
+      return [] as string[];
+    }
+
+    const trimmedValue = value.trim();
+
+    if (trimmedValue.startsWith("[") && trimmedValue.endsWith("]")) {
+      try {
+        const parsedValue = JSON.parse(trimmedValue);
+        if (Array.isArray(parsedValue)) {
+          return parsedValue
+            .map((item) => (typeof item === "string" ? item.trim() : ""))
+            .filter(Boolean);
+        }
+      } catch {
+      }
+    }
+
+    return trimmedValue
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  const relatedSkills = (project.project_skills || [])
+    .map((item) => item.tech_stack?.skill_name?.trim() || "")
+    .filter(Boolean);
+
+  const techStack = relatedSkills.length > 0 ? relatedSkills : parseTechStack(project.category);
+  const hasMoreTech = techStack.length > 3;
+  const hiddenTechCount = Math.max(techStack.length - 3, 0);
+  const visibleTechStack = showAllTech || !hasMoreTech ? techStack : techStack.slice(0, 3);
+
   return (
-    <article className={`group rounded-[30px] bg-white p-[10px] shadow-[0px_4px_4px_0px_rgba(0,0,0,0.18)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0px_14px_28px_0px_rgba(0,0,0,0.2)] ${wide ? "w-full lg:w-[640px]" : "w-full md:w-[48%] lg:w-[420px]"}`}>
-      <div className={`${wide ? "flex h-auto flex-col lg:h-[300px] lg:flex-row lg:items-center lg:justify-between" : "flex h-[320px] flex-col items-center justify-between"}`}>
-        <div className={`${wide ? "h-[170px] w-full overflow-hidden rounded-[12px] bg-[rgba(247,245,245,0.8)] lg:h-[300px] lg:w-[380px]" : "h-[170px] w-full overflow-hidden rounded-[12px] bg-[rgba(247,245,245,0.8)]"}`}>
-          <img
-            src={project.thumbnail_url || imgProjectPlaceholder}
-            alt={project.title}
-            className="h-full w-full object-contain transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+    <article
+      onClick={() => onOpenProjectDetails(project.id)}
+      className="group relative h-full w-full cursor-pointer rounded-[20px] border border-primary bg-white p-[20px] pb-24 shadow-[10px_10px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[14px_14px_0px_0px_var(--color-primary)]"
+    >
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        {visibleTechStack.map((tech, idx) => (
+          <SkillTag
+            onClick={(event) => {
+              event.stopPropagation();
+              onClickSkillTag(tech);
+            }}
+            key={`${project.id}-${tech}-${idx}`}
+            label={tech}
           />
-        </div>
-        <div className={`${wide ? "h-auto w-full bg-[rgba(247,245,245,0.5)] p-[10px] lg:flex lg:h-[300px] lg:w-[218px] lg:flex-col lg:justify-center" : "h-[130px] w-full bg-[rgba(247,245,245,0.5)] p-[10px]"}`}>
-          <h3 className={`mb-2 font-bold leading-none text-black ${wide ? "text-center text-[24px]" : "text-center text-[24px]"}`}>
-            {project.title}
-          </h3>
-          <p className={`font-medium leading-[1.05] text-black ${wide ? "line-clamp-6 text-[20px]" : "line-clamp-3 text-[20px]"}`}>
-            {project.description}
-          </p>
-        </div>
+        ))}
+        {hasMoreTech ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setShowAllTech((previous) => !previous);
+            }}
+            className="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full bg-primary/15 px-2 text-[14px] font-semibold leading-none text-primary transition-colors hover:bg-primary/25"
+            aria-label={showAllTech ? "Show fewer tech skills" : `Show ${hiddenTechCount} more tech skills`}
+          >
+            {showAllTech ? "−" : `+${hiddenTechCount}`}
+          </button>
+        ) : null}
       </div>
+
+      <div className="mb-8 h-[194px] w-full overflow-hidden rounded-[18px] bg-white">
+        {project.thumbnail_url ? (
+          <img
+            src={project.thumbnail_url}
+            alt={project.title}
+            className="h-full w-full object-contain object-center"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <ProjectImageIcon />
+          </div>
+        )}
+      </div>
+
+      <h3 className="text-left text-[42px] font-extrabold leading-[1.06] text-black">
+        {project.title}
+      </h3>
+
+      <p className="mt-3 line-clamp-3 text-left text-[16px] font-medium leading-relaxed text-secondary">
+        {project.description}
+      </p>
+
+      <button
+        type="button"
+        aria-label={`See more about ${project.title}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenProjectDetails(project.id);
+        }}
+        className="absolute bottom-8 right-8 inline-flex h-[48px] w-[48px] items-center justify-center rounded-[16px] bg-primary text-[24px] font-semibold leading-none text-white transition-colors hover:opacity-90"
+      >
+        ↗
+      </button>
     </article>
   );
 }
 
-export default function HomePage({ setCurrentPage }: HomePageProps) {
+export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomePageProps) {
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [milestones, setMilestones] = useState<MilestoneData[]>([]);
   const [specializations, setSpecializations] = useState<SpecializationData[]>([]);
@@ -158,13 +275,13 @@ export default function HomePage({ setCurrentPage }: HomePageProps) {
 
         const profileRequest = supabase
           .from("profile")
-          .select("name, hero_title, hero_sub_headline, profile_image_url")
+          .select("name, hero_title, hero_sub_headline, profile_image_url, resume_download_url, github_url, linkedin_url, email, viber_number, facebook_url, instagram_url")
           .single();
 
         const [{ data: projectsData }, { data: milestonesData }, { data: specializationData }, { data: profileData }] = await Promise.all([
           supabase
             .from("projects")
-            .select("id, title, description, thumbnail_url, category, live_demo_url, github_repo_url")
+            .select("id, title, description, thumbnail_url, is_featured, category, live_demo_url, github_repo_url, project_skills(skill_id, tech_stack(skill_name))")
             .order("created_at", { ascending: false })
             .limit(8),
           supabase.from("milestones").select("id, label, value").limit(2),
@@ -202,9 +319,10 @@ export default function HomePage({ setCurrentPage }: HomePageProps) {
     fetchHomeData();
   }, []);
 
-  const topRowProjects = useMemo(() => projects.slice(0, 3), [projects]);
-  const middleRowProjects = useMemo(() => projects.slice(3, 5), [projects]);
-  const bottomRowProjects = useMemo(() => projects.slice(5, 8), [projects]);
+  const visibleProjects = useMemo(
+    () => projects.filter((project) => project.is_featured === true).slice(0, 8),
+    [projects]
+  );
 
   const serviceCards = useMemo<SpecializationCardData[]>(() => {
     return specializations.map((item) => {
@@ -217,6 +335,11 @@ export default function HomePage({ setCurrentPage }: HomePageProps) {
       };
     });
   }, [specializations]);
+
+  function handleSkillTagClick(skill: string) {
+    queueWorksTechFilter(skill);
+    setCurrentPage("works");
+  }
 
   if (!isHomeReady) {
     return (
@@ -290,24 +413,15 @@ export default function HomePage({ setCurrentPage }: HomePageProps) {
             </button>
           </div>
 
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 justify-items-center gap-6 lg:grid-cols-3">
-              {topRowProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 justify-items-center gap-6 lg:grid-cols-2">
-              {middleRowProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} wide />
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 justify-items-center gap-6 lg:grid-cols-3">
-              {bottomRowProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
-              ))}
-            </div>
+          <div className="grid grid-cols-1 items-stretch gap-10 xl:grid-cols-2">
+            {visibleProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onClickSkillTag={handleSkillTagClick}
+                onOpenProjectDetails={onOpenProjectDetails}
+              />
+            ))}
           </div>
           </div>
         </section>
