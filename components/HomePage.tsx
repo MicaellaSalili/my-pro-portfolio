@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import HeroSection from "./HeroSection";
 import SkillTag from "./SkillTag";
 import { supabase } from "../lib/supabase";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
@@ -118,6 +117,135 @@ const homeProfileStorageKey = "home_profile_cache_v1";
 
 const imgSpecRedesign = "/assets/home/spec-redesign.svg";
 const imgArrowFilled = "/assets/hero/icon-arrow.svg";
+const imgHeroProfile = "/assets/hero/icon-profile.svg";
+const imgHeroGithub = "/assets/hero/icon-github.svg";
+const imgHeroLinkedin = "/assets/hero/icon-linkedin.svg";
+const imgHeroEmail = "/assets/hero/icon-email.svg";
+const imgHeroEmailOverlay = "/assets/hero/icon-email-overlay.svg";
+const imgHeroViber = "/assets/hero/icon-viber.svg";
+const imgHeroFacebook = "/assets/hero/icon-facebook.svg";
+const imgHeroInstagram = "/assets/hero/icon-instagram.svg";
+
+function HomeHeroSection({
+  setCurrentPage,
+  profile,
+}: {
+  setCurrentPage: (page: string) => void;
+  profile: FooterProfileData | null;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setIsVisible(true), 40);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  if (!profile) {
+    return (
+      <section className="w-full px-6 py-12 md:px-10 lg:px-[70px]">
+        <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-10 lg:flex-row lg:items-center lg:justify-center lg:gap-[96px]">
+          <div
+            className="h-[260px] w-[260px] shrink-0 rounded-full border-2 bg-white/50 md:h-[300px] md:w-[300px] lg:h-[335px] lg:w-[335px]"
+            style={{ borderColor: "var(--color-secondary)" }}
+          />
+          <div className="flex w-full max-w-[595px] flex-col items-start gap-6 px-1">
+            <div className="h-6 w-[260px] rounded bg-white/60" />
+            <div className="h-6 w-[320px] rounded bg-white/60" />
+            <div className="h-5 w-full max-w-[560px] rounded bg-white/60" />
+            <div className="h-5 w-[85%] rounded bg-white/60" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const viberLink = profile.viber_number
+    ? `viber://chat?number=${encodeURIComponent(profile.viber_number)}`
+    : "";
+
+  const socialLinks = [
+    { href: profile.resume_download_url, label: "Resume", type: "image" as const, src: imgHeroProfile },
+    { href: profile.github_url, label: "GitHub", type: "image" as const, src: imgHeroGithub },
+    { href: profile.linkedin_url, label: "LinkedIn", type: "image" as const, src: imgHeroLinkedin },
+    {
+      href: profile.email ? `mailto:${profile.email}` : "",
+      label: "Email",
+      type: "email" as const,
+      src: imgHeroEmail,
+      srcOverlay: imgHeroEmailOverlay,
+    },
+    { href: viberLink, label: "Viber", type: "image" as const, src: imgHeroViber },
+    { href: profile.facebook_url, label: "Facebook", type: "image" as const, src: imgHeroFacebook },
+    { href: profile.instagram_url, label: "Instagram", type: "image" as const, src: imgHeroInstagram },
+  ];
+
+  return (
+    <section className="w-full px-6 py-12 md:px-10 lg:px-[70px]">
+      <div className={`mx-auto flex max-w-[1320px] flex-col-reverse items-center gap-10 transition-all duration-[900ms] ease-out lg:flex-row lg:items-center lg:justify-between lg:gap-[72px] motion-reduce:transition-none ${
+        isVisible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
+      }`}>
+        <div
+          className="h-[280px] w-[280px] shrink-0 overflow-hidden rounded-full border-[10px] border-white shadow-[0_26px_48px_rgba(17,24,39,0.16)] transition-transform duration-500 ease-out hover:-translate-y-1 hover:scale-[1.03] md:h-[340px] md:w-[340px] lg:h-[430px] lg:w-[430px]"
+        >
+          {profile.profile_image_url ? (
+            <img
+              src={profile.profile_image_url}
+              alt={profile.name || ""}
+              className="h-full w-full object-cover"
+            />
+          ) : null}
+        </div>
+
+        <div className={`flex w-full max-w-[680px] flex-col items-start gap-7 px-1 transition-all duration-[950ms] delay-150 ease-out motion-reduce:transition-none ${
+          isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+        }`}>
+          <div className="text-[56px] font-extrabold leading-[0.95] text-[#0f1833] md:text-[72px] lg:text-[92px]">
+            <p>{profile.hero_title}</p>
+            <p className="font-extrabold" style={{ color: "var(--color-primary)" }}>
+              {profile.name}
+            </p>
+          </div>
+
+          <p className="max-w-[620px] text-[18px] font-medium leading-[1.45] text-slate-600 md:text-[21px]">
+            {profile.hero_sub_headline}
+          </p>
+
+          <div className="flex w-full flex-wrap items-center gap-4 md:flex-nowrap md:justify-between md:gap-5">
+            {socialLinks.map((item) => (
+              <a
+                key={item.label}
+                href={item.href || "#"}
+                target={item.href && !String(item.href).startsWith("mailto:") && !String(item.href).startsWith("viber:") ? "_blank" : undefined}
+                rel={item.href && !String(item.href).startsWith("mailto:") && !String(item.href).startsWith("viber:") ? "noreferrer" : undefined}
+                aria-label={item.label}
+                onClick={(event) => {
+                  if (!item.href) {
+                    event.preventDefault();
+                  }
+                }}
+                className="relative flex h-[44px] w-[44px] items-center justify-center rounded-full transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-110 hover:bg-white/40 active:scale-95"
+              >
+                <img src={item.src} alt="" className="h-[31px] w-[31px] object-contain" />
+                {item.type === "email" && item.srcOverlay ? (
+                  <img src={item.srcOverlay} alt="" className="pointer-events-none absolute h-[28px] w-[28px] object-contain" />
+                ) : null}
+              </a>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage("about")}
+            className="inline-flex h-[56px] items-center rounded-[19px] px-7 text-[26px] font-normal leading-none text-white shadow-[0_6px_16px_rgba(128,94,255,0.3)] transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(128,94,255,0.36)] hover:opacity-95 active:translate-y-0 active:scale-[0.96]"
+            style={{ backgroundColor: "var(--color-primary)" }}
+          >
+            <span>Learn More</span>
+            <img src={imgArrowFilled} alt="" className="ml-3 h-[20px] w-[24px]" />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function ProjectImageIcon() {
   return (
@@ -354,7 +482,7 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
 
   return (
     <div className="w-full">
-      <HeroSection setCurrentPage={setCurrentPage} profile={profile} />
+      <HomeHeroSection setCurrentPage={setCurrentPage} profile={profile} />
 
       <RevealOnScroll delayMs={40}>
         <section className="px-6 pb-12 md:px-10 lg:px-[70px]">

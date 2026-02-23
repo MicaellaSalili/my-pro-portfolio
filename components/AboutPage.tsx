@@ -34,6 +34,8 @@ const toolGroups = [
   },
 ];
 
+const ABOUT_PAGE_CACHE_KEY = "about_page_cache_v1";
+
 type ProfileData = {
   name: string | null;
   about_summary: string | null;
@@ -107,6 +109,42 @@ type ToolGroupData = {
   items: string[];
 };
 
+type AboutPageCacheData = {
+  profile: ProfileData | null;
+  education: EducationData | null;
+  certificationList: CertificationData[];
+  experienceList: ExperienceWithSkills[];
+  toolSkills: TechStackData[];
+  specializationList: SpecializationData[];
+  experienceValue: string;
+  projectsValue: string;
+};
+
+function readAboutPageCache(): AboutPageCacheData | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const rawValue = window.localStorage.getItem(ABOUT_PAGE_CACHE_KEY);
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawValue) as AboutPageCacheData;
+  } catch {
+    return null;
+  }
+}
+
+function writeAboutPageCache(value: AboutPageCacheData) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(ABOUT_PAGE_CACHE_KEY, JSON.stringify(value));
+}
+
 function normalizeToolCategory(value: string | null) {
   const category = (value || "").toLowerCase();
 
@@ -145,15 +183,17 @@ function SectionBadge({ label }: { label: string }) {
 
 export default function AboutPage() {
   const pageContext = useContext(PageContext);
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [education, setEducation] = useState<EducationData | null>(null);
-  const [certificationList, setCertificationList] = useState<CertificationData[]>([]);
-  const [experienceList, setExperienceList] = useState<ExperienceWithSkills[]>([]);
-  const [toolSkills, setToolSkills] = useState<TechStackData[]>([]);
-  const [specializationList, setSpecializationList] = useState<SpecializationData[]>([]);
-  const [experienceValue, setExperienceValue] = useState("4 Years");
-  const [projectsValue, setProjectsValue] = useState("0");
+  const [cachedPageData] = useState<AboutPageCacheData | null>(() => readAboutPageCache());
+  const [profile, setProfile] = useState<ProfileData | null>(cachedPageData?.profile || null);
+  const [education, setEducation] = useState<EducationData | null>(cachedPageData?.education || null);
+  const [certificationList, setCertificationList] = useState<CertificationData[]>(cachedPageData?.certificationList || []);
+  const [experienceList, setExperienceList] = useState<ExperienceWithSkills[]>(cachedPageData?.experienceList || []);
+  const [toolSkills, setToolSkills] = useState<TechStackData[]>(cachedPageData?.toolSkills || []);
+  const [specializationList, setSpecializationList] = useState<SpecializationData[]>(cachedPageData?.specializationList || []);
+  const [experienceValue, setExperienceValue] = useState(cachedPageData?.experienceValue || "");
+  const [projectsValue, setProjectsValue] = useState(cachedPageData?.projectsValue || "");
   const [activeSidebarItem, setActiveSidebarItem] = useState(sidebarItems[0].id);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     async function fetchAboutData() {
@@ -194,7 +234,7 @@ export default function AboutPage() {
           .select("experience_id, skill_id, tech_stack(skill_name)"),
         supabase
           .from("specializations")
-          .select("title, description")
+          .select("id, title, description")
           .eq("is_active", true)
           .order("sort_order", { ascending: true })
           .limit(3),
@@ -202,54 +242,36 @@ export default function AboutPage() {
         supabase.from("milestones").select("label, value"),
       ]);
 
-      if (profileResult.data) {
-        setProfile(profileResult.data as ProfileData);
-      }
-
-      if (educationResult.data) {
-        setEducation(educationResult.data as EducationData);
-      }
-
-      if (certificationsResult.data) {
-        setCertificationList(certificationsResult.data as CertificationData[]);
-      }
-
+      const profileData = (profileResult.data as ProfileData | null) || null;
+      const educationData = (educationResult.data as EducationData | null) || null;
+      const certificationsData = (certificationsResult.data as CertificationData[]) || [];
       const experiencesData = (experienceResult.data || []) as ExperienceData[];
       const experienceSkills = (experienceSkillsResult.data || []) as ExperienceSkillData[];
       const techStackData = (techStackResult.data || []) as TechStackData[];
+      const specializationsData = (specializationsResult.data || []) as SpecializationData[];
 
-      setToolSkills(techStackData);
+      const skillByExperience = new Map<string, string[]>();
+      experienceSkills.forEach((row) => {
+        const skill = row.tech_stack?.skill_name?.trim() || "";
+        if (!skill) {
+          return;
+        }
 
-      if (experiencesData.length > 0) {
-        const skillByExperience = new Map<string, string[]>();
-        experienceSkills.forEach((row) => {
-          const skill = row.tech_stack?.skill_name?.trim() || "";
-          if (!skill) {
-            return;
-          }
+        const current = skillByExperience.get(row.experience_id) || [];
+        current.push(skill);
+        skillByExperience.set(row.experience_id, current);
+      });
 
-          const current = skillByExperience.get(row.experience_id) || [];
-          current.push(skill);
-          skillByExperience.set(row.experience_id, current);
-        });
-
-        const mapped: ExperienceWithSkills[] = experiencesData.map((item) => ({
-          id: item.id,
-          role: item.role || "",
-          company: item.company || "",
-          location: item.location || "",
-          date: item.period || "",
-          summary: item.description || "",
-          proofUrl: item.proof_url,
-          skills: (skillByExperience.get(item.id) || []).slice(0, 4),
-        }));
-
-        setExperienceList(mapped);
-      }
-
-      if (specializationsResult.data && specializationsResult.data.length > 0) {
-        setSpecializationList(specializationsResult.data as SpecializationData[]);
-      }
+      const mappedExperience: ExperienceWithSkills[] = experiencesData.map((item) => ({
+        id: item.id,
+        role: item.role || "",
+        company: item.company || "",
+        location: item.location || "",
+        date: item.period || "",
+        summary: item.description || "",
+        proofUrl: item.proof_url,
+        skills: (skillByExperience.get(item.id) || []).slice(0, 4),
+      }));
 
       const projectCount = projectCountResult.count || 0;
       const milestones = (milestonesResult.data || []) as MilestoneData[];
@@ -260,14 +282,35 @@ export default function AboutPage() {
         (item.label || "").toLowerCase().includes("project")
       );
 
-      setExperienceValue(experienceMilestone?.value || `${experiencesData.length}`);
-      setProjectsValue(projectsMilestone?.value || `${projectCount}`);
+      const nextExperienceValue = experienceMilestone?.value || `${experiencesData.length}`;
+      const nextProjectsValue = projectsMilestone?.value || `${projectCount}`;
+
+      setProfile(profileData);
+      setEducation(educationData);
+      setCertificationList(certificationsData);
+      setExperienceList(mappedExperience);
+      setToolSkills(techStackData);
+      setSpecializationList(specializationsData);
+      setExperienceValue(nextExperienceValue);
+      setProjectsValue(nextProjectsValue);
+
+      writeAboutPageCache({
+        profile: profileData,
+        education: educationData,
+        certificationList: certificationsData,
+        experienceList: mappedExperience,
+        toolSkills: techStackData,
+        specializationList: specializationsData,
+        experienceValue: nextExperienceValue,
+        projectsValue: nextProjectsValue,
+      });
     }
 
     fetchAboutData();
   }, []);
 
   const aboutSummary = profile?.about_summary?.trim() || "";
+  const displayAboutSummary = aboutSummary || "No about summary yet.";
 
   const groupedTools = useMemo<ToolGroupData[]>(() => {
     const groups = new Map<string, string[]>();
@@ -368,8 +411,8 @@ export default function AboutPage() {
 
   return (
     <section className="w-full bg-transparent px-5 py-6 lg:px-6">
-      <div className="mx-auto flex w-full max-w-[1440px] items-start gap-10">
-        <aside className="w-full max-w-[270px] shrink-0 self-start lg:sticky lg:top-24">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-6 lg:flex-row lg:gap-10">
+        <aside className="hidden w-full max-w-[270px] shrink-0 self-start lg:sticky lg:top-24 lg:block">
           <h2 className="mb-6 text-[22px] font-bold leading-none text-black">About</h2>
           <ul className="space-y-3">
             {sidebarItems.map((item) => (
@@ -382,7 +425,7 @@ export default function AboutPage() {
                   className={`h-[50px] w-full rounded-[999px] border px-4 text-left text-[20px] leading-none transition-all ${
                     activeSidebarItem === item.id
                       ? "border-primary bg-primary text-white font-bold shadow-[0_6px_18px_rgba(128,94,255,0.35)]"
-                      : "border-[#DCE0E8] bg-transparent font-semibold text-secondary hover:border-primary/50 hover:text-primary"
+                      : "border-[#DCE0E8] bg-transparent font-semibold text-secondary hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary active:translate-y-0 active:scale-[0.99]"
                   }`}
                 >
                   {item.label}
@@ -392,12 +435,23 @@ export default function AboutPage() {
           </ul>
         </aside>
 
-        <div className="w-full max-w-[1098px] space-y-10">
+        <div className="w-full min-w-0 max-w-[1098px] space-y-8 md:space-y-10">
+          <div className="flex items-center justify-start lg:hidden">
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="inline-flex h-[44px] items-center gap-2 rounded-[12px] border border-primary bg-white px-4 text-[14px] font-semibold text-primary shadow-[0_6px_16px_rgba(128,94,255,0.2)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+            >
+              <span className="text-[18px] leading-none">☰</span>
+              Sections
+            </button>
+          </div>
+
           <section id="profile" className="scroll-mt-28 flex flex-col gap-6 lg:flex-row lg:justify-between">
             <div className="max-w-[700px]">
               <SectionBadge label="About Me" />
-              <p className="mt-6 max-w-[650px] text-[20px] font-medium leading-[1.35] text-secondary">
-                {aboutSummary || "No about summary yet."}
+              <p className="mt-6 max-w-[650px] text-[17px] font-medium leading-[1.4] text-secondary transition-opacity duration-300 sm:text-[20px] sm:leading-[1.35]">
+                {displayAboutSummary}
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
@@ -405,27 +459,27 @@ export default function AboutPage() {
                   href={profile?.resume_download_url || ""}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-[48px] items-center gap-2 rounded-[24px] bg-black px-5 text-[14px] font-semibold text-white disabled:pointer-events-none disabled:opacity-60"
+                  className="inline-flex h-[48px] items-center gap-2 rounded-[24px] bg-black px-5 text-[14px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
                 >
                   ⬇ Download Resume
                 </a>
                 <button
                   type="button"
-                  className="inline-flex h-[48px] items-center gap-2 rounded-[24px] border border-primary bg-white px-6 text-[14px] font-semibold text-primary"
+                  className="inline-flex h-[48px] items-center gap-2 rounded-[24px] border border-primary bg-white px-6 text-[14px] font-semibold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:text-white active:translate-y-0 active:scale-[0.99]"
                 >
                   ◔ Contact Me
                 </button>
               </div>
             </div>
 
-            <div className="flex w-full max-w-[300px] flex-col gap-6 pt-5">
-              <article className="rounded-[10px] border border-primary bg-white px-4 py-5 shadow-[8px_8px_0px_0px_var(--color-primary)]">
+            <div className="flex w-full max-w-full flex-col gap-4 pt-1 sm:max-w-[300px] sm:gap-6 sm:pt-5">
+              <article className="rounded-[10px] border border-primary bg-white px-4 py-5 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99]">
                 <p className="text-[12px] font-semibold uppercase text-[#D3D3D3]">Experience</p>
-                <p className="mt-1 text-[36px] font-bold leading-none text-primary">{experienceValue}</p>
+                <p className="mt-1 text-[36px] font-bold leading-none text-primary">{experienceValue || "0"}</p>
               </article>
-              <article className="rounded-[10px] border border-primary bg-white px-4 py-5 shadow-[8px_8px_0px_0px_var(--color-primary)]">
+              <article className="rounded-[10px] border border-primary bg-white px-4 py-5 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99]">
                 <p className="text-[12px] font-semibold uppercase text-[#D3D3D3]">Projects</p>
-                <p className="mt-1 text-[36px] font-bold leading-none text-primary">{projectsValue}</p>
+                <p className="mt-1 text-[36px] font-bold leading-none text-primary">{projectsValue || "0"}</p>
               </article>
             </div>
           </section>
@@ -433,7 +487,7 @@ export default function AboutPage() {
           <section id="credentials" className="scroll-mt-28">
             <SectionBadge label="Credentials" />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1fr]">
-              <article className="rounded-[24px] bg-white p-6">
+              <article className="rounded-[24px] bg-white p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)]">
                 <h3 className="text-[20px] font-bold text-black">Education</h3>
                 <div className="mt-6 rounded-[14px] bg-[#F7F7F8] p-4">
                   {education?.degree ? <p className="text-[16px] font-semibold text-black">{education.degree}</p> : null}
@@ -447,19 +501,19 @@ export default function AboutPage() {
                   ) : null}
                   {education?.elective ? (
                     <span className="mt-3 inline-block rounded-[6px] bg-[color-mix(in_srgb,var(--color-primary)_20%,white)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-primary">
-                      {`Elective: ${education.elective}`}
+                      {`${education.elective}`}
                     </span>
                   ) : null}
                 </div>
               </article>
 
-              <article className="rounded-[24px] bg-white p-6">
+              <article className="rounded-[24px] bg-white p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)]">
                 <h3 className="text-[20px] font-bold text-black">Certifications</h3>
                 <div className="mt-6 space-y-3">
                   {certificationList.length === 0 ? (
                     <p className="text-[14px] text-secondary">No certifications yet.</p>
                   ) : certificationList.map((item, index) => (
-                    <div key={`${item.name}-${index}`} className="flex items-center justify-between rounded-[18px] bg-[#F7F7F8] px-4 py-3">
+                    <div key={`${item.name}-${index}`} className="flex items-center justify-between rounded-[18px] bg-[#F7F7F8] px-4 py-3 transition-all duration-200 hover:-translate-y-0.5">
                       <div>
                         <p className="text-[14px] font-bold text-black">{item.name || ""}</p>
                         <p className="text-[12px] font-medium uppercase text-secondary">
@@ -471,7 +525,7 @@ export default function AboutPage() {
                           href={item.credential_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-secondary"
+                          className="text-secondary transition-all duration-200 hover:text-primary"
                         >
                           ↗
                         </a>
@@ -493,8 +547,8 @@ export default function AboutPage() {
                   <p className="text-[14px] text-secondary">No experience data yet.</p>
                 </article>
               ) : experienceList.map((item) => (
-                <article key={item.id} className="rounded-[14px] bg-white p-5">
-                  <div className="mb-3 flex items-start justify-between gap-4">
+                <article key={item.id} className="rounded-[14px] bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)] active:translate-y-0">
+                  <div className="mb-3 flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4">
                     <div>
                       {item.role ? <p className="text-[20px] font-bold text-black">{item.role}</p> : null}
                       {item.company ? <p className="text-[20px] font-medium text-primary">{item.company}</p> : null}
@@ -526,7 +580,7 @@ export default function AboutPage() {
               {groupedTools.map((group) => (
                 <article
                   key={group.title}
-                  className={`rounded-[24px] p-5 ${group.dark ? "bg-[#17002F]" : "bg-white"}`}
+                  className={`rounded-[24px] p-5 transition-all duration-200 hover:-translate-y-1 ${group.dark ? "bg-[#17002F] hover:shadow-[6px_6px_0px_0px_var(--color-primary)]" : "bg-white hover:shadow-[6px_6px_0px_0px_var(--color-primary)]"}`}
                 >
                   <h4 className={`text-[12px] font-semibold uppercase tracking-[0.18em] ${group.dark ? "text-white" : "text-primary"}`}>
                     {group.title}
@@ -558,18 +612,24 @@ export default function AboutPage() {
               </article>
             ) : (
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                {specializationList.map((item) => (
+                {specializationList.map((item, index) => (
                   <article
-                    key={item.id}
-                    className="rounded-[14px] border border-primary bg-white p-4 shadow-[6px_6px_0px_0px_var(--color-primary)]"
+                    key={item.id || `${item.title}-${index}`}
+                    className="rounded-[14px] border border-primary bg-white p-4 shadow-[6px_6px_0px_0px_var(--color-primary)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)] active:translate-y-0"
                   >
                     <div className="mb-3 inline-flex size-8 items-center justify-center rounded-[8px] bg-primary/15 text-primary">
                       ◻
                     </div>
                     <h4 className="text-[16px] font-medium text-black">{item.title}</h4>
                     <p className="mt-2 text-[12px] leading-relaxed text-secondary">{item.description}</p>
-                    <button type="button" className="mt-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary">
-                      View Design Works ↗
+                    <button
+                      type="button"
+                      onClick={() => {
+                        pageContext?.setCurrentPage("works");
+                      }}
+                      className="mt-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary transition-all duration-200 hover:translate-x-0.5 hover:text-primary/80 active:translate-x-0 active:scale-95"
+                    >
+                      View Related Works ↗
                     </button>
                   </article>
                 ))}
@@ -578,6 +638,51 @@ export default function AboutPage() {
           </section>
         </div>
       </div>
+
+      {isMobileSidebarOpen ? (
+        <div className="fixed inset-0 z-[80] bg-black/35 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="h-full w-full"
+            aria-label="Close sections backdrop"
+          />
+          <div className="absolute left-0 top-0 h-full w-full max-w-[320px] overflow-y-auto bg-white px-4 py-4 shadow-[10px_0_24px_rgba(15,24,51,0.2)]">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-[16px] font-bold text-black">About Sections</h3>
+              <button
+                type="button"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-primary/30 text-[18px] text-primary"
+                aria-label="Close sections"
+              >
+                ✕
+              </button>
+            </div>
+
+            <ul className="space-y-2">
+              {sidebarItems.map((item) => (
+                <li key={`mobile-${item.id}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      goToSection(item.id, true);
+                      setIsMobileSidebarOpen(false);
+                    }}
+                    className={`h-[42px] w-full rounded-[999px] border px-4 text-left text-[14px] leading-none transition-all ${
+                      activeSidebarItem === item.id
+                        ? "border-primary bg-primary font-bold text-white shadow-[0_6px_18px_rgba(128,94,255,0.35)]"
+                        : "border-[#DCE0E8] bg-transparent font-semibold text-secondary"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

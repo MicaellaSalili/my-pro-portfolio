@@ -135,8 +135,8 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
     <PageContext.Provider value={{ currentPage, setCurrentPage, selectedProjectId, setSelectedProjectId }}>
       <div className="min-h-screen bg-fairy-gradient font-sans dark:bg-black">
         <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
-        <div className="flex justify-center w-full">
-          <div style={{ width: 1440 }}>
+        <div className="flex w-full justify-center">
+          <div className="w-full max-w-[1440px]">
             {children}
             <Footer
               contactLinks={footerContactLinks}
