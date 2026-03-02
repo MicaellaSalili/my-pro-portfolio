@@ -9,6 +9,7 @@ interface NavbarProps {
 
 export default function Navbar({ currentPage, setCurrentPage }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const activeNavPage = currentPage === "project-details" ? "works" : currentPage;
 
   const navItems = [
     { label: "Home", page: "home" },
@@ -56,7 +57,7 @@ export default function Navbar({ currentPage, setCurrentPage }: NavbarProps) {
             <button
               onClick={() => handleNavClick(item.page)}
               className={`flex h-[42px] items-center rounded-full px-5 text-base font-semibold transition-all duration-200 ${
-                currentPage === item.page
+                activeNavPage === item.page
                   ? "bg-primary text-white shadow-[0_8px_20px_rgba(163,134,255,0.45)]"
                   : "text-slate-600 hover:bg-white hover:text-slate-800"
               }`}
@@ -114,7 +115,7 @@ export default function Navbar({ currentPage, setCurrentPage }: NavbarProps) {
                   type="button"
                   onClick={() => handleNavClick(item.page)}
                   className={`flex h-[44px] w-full items-center rounded-[14px] px-4 text-left text-[15px] font-semibold transition-all duration-200 ${
-                    currentPage === item.page
+                    activeNavPage === item.page
                       ? "bg-primary text-white shadow-[0_8px_18px_rgba(128,94,255,0.35)]"
                       : "text-slate-700 hover:bg-white hover:text-slate-900"
                   }`}

@@ -36,6 +36,39 @@ const iconLinkedin = "/assets/hero/icon-linkedin.svg";
 const iconFacebook = "/assets/hero/icon-facebook.svg";
 const iconInstagram = "/assets/hero/icon-instagram.svg";
 
+let contactPageProfileCache: ContactProfileData | null = null;
+let contactPagePending: Promise<ContactProfileData | null> | null = null;
+
+async function fetchContactProfileData(): Promise<ContactProfileData | null> {
+  const { data } = await supabase.from("profile").select("*").limit(1).maybeSingle();
+  return (data as ContactProfileData | null) || null;
+}
+
+export function prefetchContactPageData(): Promise<ContactProfileData | null> {
+  if (contactPageProfileCache) {
+    return Promise.resolve(contactPageProfileCache);
+  }
+
+  if (contactPagePending) {
+    return contactPagePending;
+  }
+
+  const request = (async () => {
+    try {
+      const profileData = await fetchContactProfileData();
+      if (profileData) {
+        contactPageProfileCache = profileData;
+      }
+      return profileData;
+    } finally {
+      contactPagePending = null;
+    }
+  })();
+
+  contactPagePending = request;
+  return request;
+}
+
 function getContactTitle(profile: ContactProfileData | null) {
   const contactTitle = profile?.contact_title?.trim();
   if (contactTitle) {
@@ -51,7 +84,7 @@ function getContactTitle(profile: ContactProfileData | null) {
 }
 
 export default function ContactPage() {
-  const [profile, setProfile] = useState<ContactProfileData | null>(null);
+  const [profile, setProfile] = useState<ContactProfileData | null>(contactPageProfileCache);
   const [fullName, setFullName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [subject, setSubject] = useState("");
@@ -63,14 +96,25 @@ export default function ContactPage() {
   const formCardRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    let isUnmounted = false;
+
     async function fetchContactProfile() {
-      const { data } = await supabase.from("profile").select("*").limit(1).maybeSingle();
-      if (data) {
-        setProfile(data as ContactProfileData);
+      const cachedProfile = contactPageProfileCache;
+      if (cachedProfile) {
+        setProfile(cachedProfile);
+      }
+
+      const profileData = await prefetchContactPageData();
+      if (!isUnmounted) {
+        setProfile(profileData);
       }
     }
 
-    fetchContactProfile();
+    void fetchContactProfile();
+
+    return () => {
+      isUnmounted = true;
+    };
   }, []);
 
   const contactItems = useMemo<ContactInfoItem[]>(() => {

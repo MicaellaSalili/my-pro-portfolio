@@ -64,6 +64,13 @@ interface FooterProfileData {
   instagram_url?: string;
 }
 
+type HomePageCacheData = {
+  projects: ProjectData[];
+  milestones: MilestoneData[];
+  specializations: SpecializationData[];
+  profile: FooterProfileData | null;
+};
+
 function RevealOnScroll({
   children,
   delayMs = 0,
@@ -80,14 +87,15 @@ function RevealOnScroll({
       return;
     }
 
+    // Trigger reveal much earlier (almost as soon as section is near viewport)
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
         setIsInView(entry.isIntersecting);
       },
       {
-        threshold: 0.2,
-        rootMargin: "0px 0px -8% 0px",
+        threshold: 0.05, // Lower threshold for earlier trigger
+        rootMargin: "0px 0px -40% 0px", // Reveal when 40% of section is still below viewport
       }
     );
 
@@ -113,7 +121,69 @@ function RevealOnScroll({
 }
 
 let cachedHomeProfile: FooterProfileData | null = null;
+let homePageMemoryCache: HomePageCacheData | null = null;
+let homePagePending: Promise<HomePageCacheData> | null = null;
 const homeProfileStorageKey = "home_profile_cache_v1";
+
+async function fetchHomePageDataFromServer(): Promise<HomePageCacheData> {
+  const profileRequest = supabase
+    .from("profile")
+    .select("name, hero_title, hero_sub_headline, profile_image_url, resume_download_url, github_url, linkedin_url, email, viber_number, facebook_url, instagram_url")
+    .single();
+
+  const [{ data: projectsData }, { data: milestonesData }, { data: specializationData }, { data: profileData }] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, title, description, thumbnail_url, is_featured, category, live_demo_url, github_repo_url, project_skills(skill_id, tech_stack(skill_name))")
+      .order("created_at", { ascending: false }),
+    supabase.from("milestones").select("id, label, value"),
+    supabase
+      .from("specializations")
+      .select("id, title, description, bullets, sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    profileRequest,
+  ]);
+
+  const nextProfile = (profileData as FooterProfileData | null) || null;
+  if (nextProfile) {
+    cachedHomeProfile = nextProfile;
+    try {
+      window.localStorage.setItem(homeProfileStorageKey, JSON.stringify(nextProfile));
+    } catch {
+    }
+  }
+
+  return {
+    projects: (projectsData as ProjectData[]) || [],
+    milestones: (milestonesData as MilestoneData[]) || [],
+    specializations: (specializationData as SpecializationData[]) || [],
+    profile: nextProfile || cachedHomeProfile,
+  };
+}
+
+export function prefetchHomePageData(): Promise<HomePageCacheData> {
+  if (homePageMemoryCache) {
+    return Promise.resolve(homePageMemoryCache);
+  }
+
+  if (homePagePending) {
+    return homePagePending;
+  }
+
+  const request = (async () => {
+    try {
+      const nextData = await fetchHomePageDataFromServer();
+      homePageMemoryCache = nextData;
+      return nextData;
+    } finally {
+      homePagePending = null;
+    }
+  })();
+
+  homePagePending = request;
+  return request;
+}
 
 const imgSpecRedesign = "/assets/home/spec-redesign.svg";
 const imgArrowFilled = "/assets/hero/icon-arrow.svg";
@@ -183,15 +253,21 @@ function HomeHeroSection({
     <section className="w-full px-6 py-12 md:px-10 lg:px-[70px]">
       <div className={`mx-auto flex max-w-[1320px] flex-col-reverse items-center gap-10 transition-all duration-[900ms] ease-out lg:flex-row lg:items-center lg:justify-between lg:gap-[72px] motion-reduce:transition-none ${
         isVisible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
-      }`}>
+      }`.replace("lg:justify-between", "lg:justify-center") }>
         <div
-          className="h-[280px] w-[280px] shrink-0 overflow-hidden rounded-full border-[10px] border-white shadow-[0_26px_48px_rgba(17,24,39,0.16)] transition-transform duration-500 ease-out hover:-translate-y-1 hover:scale-[1.03] md:h-[340px] md:w-[340px] lg:h-[430px] lg:w-[430px]"
+          className="relative h-[200px] w-[240px] px-6 shrink-0 overflow-hidden rounded-[32px] border-2 border-violet-400 bg-white shadow-[0_8px_32px_0_rgba(163,134,255,0.18),8px_8px_0px_0px_var(--color-primary)] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_16px_48px_0_rgba(163,134,255,0.28),12px_12px_0px_0px_var(--color-primary)] active:scale-95 md:h-[260px] md:w-[320px] lg:h-[320px] lg:w-[400px] flex flex-col justify-center items-center"
         >
+          {/* macOS window top bar */}
+          <div className="absolute left-0 top-0 z-20 flex h-10 w-full items-center rounded-t-[28px] bg-gradient-to-b from-gray-100/80 to-white/0 border-b border-gray-200 px-4">
+            <span className="inline-block h-3 w-3 rounded-full bg-red-400 border border-gray-300 shadow-sm mr-2"></span>
+            <span className="inline-block h-3 w-3 rounded-full bg-yellow-300 border border-gray-300 shadow-sm mr-2"></span>
+            <span className="inline-block h-3 w-3 rounded-full bg-green-400 border border-gray-300 shadow-sm"></span>
+          </div>
           {profile.profile_image_url ? (
             <img
               src={profile.profile_image_url}
               alt={profile.name || ""}
-              className="h-full w-full object-cover"
+              className="mt-9 h-[calc(100%-2.25rem)] w-auto max-h-[calc(100%-2.25rem)] object-contain z-10"
             />
           ) : null}
         </div>
@@ -379,13 +455,15 @@ function ProjectCard({
 }
 
 export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomePageProps) {
-  const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [milestones, setMilestones] = useState<MilestoneData[]>([]);
-  const [specializations, setSpecializations] = useState<SpecializationData[]>([]);
-  const [profile, setProfile] = useState<FooterProfileData | null>(cachedHomeProfile);
-  const [isHomeReady, setIsHomeReady] = useState<boolean>(Boolean(cachedHomeProfile));
+  const [projects, setProjects] = useState<ProjectData[]>(homePageMemoryCache?.projects || []);
+  const [milestones, setMilestones] = useState<MilestoneData[]>(homePageMemoryCache?.milestones || []);
+  const [specializations, setSpecializations] = useState<SpecializationData[]>(homePageMemoryCache?.specializations || []);
+  const [profile, setProfile] = useState<FooterProfileData | null>(homePageMemoryCache?.profile || cachedHomeProfile);
+  const [isHomeReady, setIsHomeReady] = useState<boolean>(Boolean(homePageMemoryCache?.profile || cachedHomeProfile));
 
   useEffect(() => {
+    let isUnmounted = false;
+
     async function fetchHomeData() {
       try {
         if (!cachedHomeProfile) {
@@ -401,54 +479,40 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
           }
         }
 
-        const profileRequest = supabase
-          .from("profile")
-          .select("name, hero_title, hero_sub_headline, profile_image_url, resume_download_url, github_url, linkedin_url, email, viber_number, facebook_url, instagram_url")
-          .single();
+        if (homePageMemoryCache) {
+          setProjects(homePageMemoryCache.projects);
+          setMilestones(homePageMemoryCache.milestones);
+          setSpecializations(homePageMemoryCache.specializations);
+          setProfile(homePageMemoryCache.profile);
+          setIsHomeReady(true);
+          return;
+        }
 
-        const [{ data: projectsData }, { data: milestonesData }, { data: specializationData }, { data: profileData }] = await Promise.all([
-          supabase
-            .from("projects")
-            .select("id, title, description, thumbnail_url, is_featured, category, live_demo_url, github_repo_url, project_skills(skill_id, tech_stack(skill_name))")
-            .order("created_at", { ascending: false })
-            .limit(8),
-          supabase.from("milestones").select("id, label, value").limit(2),
-          supabase
-            .from("specializations")
-            .select("id, title, description, bullets, sort_order")
-            .eq("is_active", true)
-            .order("sort_order", { ascending: true })
-            .limit(3),
-          profileRequest,
-        ]);
+        const nextData = await prefetchHomePageData();
+        if (isUnmounted) {
+          return;
+        }
 
-        if (projectsData) {
-          setProjects(projectsData as ProjectData[]);
-        }
-        if (milestonesData) {
-          setMilestones(milestonesData as MilestoneData[]);
-        }
-        if (specializationData) {
-          setSpecializations(specializationData as SpecializationData[]);
-        }
-        if (profileData) {
-          cachedHomeProfile = profileData as FooterProfileData;
-          setProfile(cachedHomeProfile);
-          try {
-            window.localStorage.setItem(homeProfileStorageKey, JSON.stringify(cachedHomeProfile));
-          } catch {
-          }
-        }
+        setProjects(nextData.projects);
+        setMilestones(nextData.milestones);
+        setSpecializations(nextData.specializations);
+        setProfile(nextData.profile);
       } finally {
-        setIsHomeReady(true);
+        if (!isUnmounted) {
+          setIsHomeReady(true);
+        }
       }
     }
 
-    fetchHomeData();
+    void fetchHomeData();
+
+    return () => {
+      isUnmounted = true;
+    };
   }, []);
 
   const visibleProjects = useMemo(
-    () => projects.filter((project) => project.is_featured === true).slice(0, 8),
+    () => projects.filter((project) => project.is_featured === true),
     [projects]
   );
 

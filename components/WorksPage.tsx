@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import SkillTag from "./SkillTag";
 import {
@@ -58,6 +58,85 @@ const defaultCategories = [
 
 const projectTypeOptions = ["All", "Personal", "Client", "School"];
 
+let worksProjectsCache: ProjectCardData[] | null = null;
+let worksProjectsPending: Promise<ProjectCardData[]> | null = null;
+
+function parseProjectCategoryTechStack(value: string | null) {
+  if (!value) {
+    return [] as string[];
+  }
+
+  const trimmedValue = value.trim();
+
+  if (trimmedValue.startsWith("[") && trimmedValue.endsWith("]")) {
+    try {
+      const parsedValue = JSON.parse(trimmedValue);
+      if (Array.isArray(parsedValue)) {
+        return parsedValue
+          .map((item) => (typeof item === "string" ? item.trim() : ""))
+          .filter(Boolean);
+      }
+    } catch {
+    }
+  }
+
+  return trimmedValue
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+async function fetchWorksProjectsFromServer(): Promise<ProjectCardData[]> {
+  const { data } = await supabase
+    .from("projects")
+    .select("id, title, description, thumbnail_url, project_type, category, live_demo_url, github_repo_url, project_skills(skill_id, tech_stack(skill_name))")
+    .order("created_at", { ascending: false });
+
+  return (data as ProjectRow[] | null)?.map((project) => {
+    const relatedSkills = (project.project_skills || [])
+      .map((item) => item.tech_stack?.skill_name?.trim() || "")
+      .filter(Boolean);
+
+    const tags = relatedSkills.length > 0 ? relatedSkills : parseProjectCategoryTechStack(project.category);
+
+    return {
+      id: project.id,
+      title: project.title || "Untitled Project",
+      description: project.description || "No description available.",
+      thumbnailUrl: project.thumbnail_url || "",
+      projectType: project.project_type,
+      techStack: tags,
+      category: project.category,
+      liveDemoUrl: project.live_demo_url,
+      githubRepoUrl: project.github_repo_url,
+      project_skills: project.project_skills || [],
+    };
+  }) || [];
+}
+
+export function prefetchWorksPageData(): Promise<ProjectCardData[]> {
+  if (worksProjectsCache) {
+    return Promise.resolve(worksProjectsCache);
+  }
+
+  if (worksProjectsPending) {
+    return worksProjectsPending;
+  }
+
+  const request = (async () => {
+    try {
+      const projects = await fetchWorksProjectsFromServer();
+      worksProjectsCache = projects;
+      return projects;
+    } finally {
+      worksProjectsPending = null;
+    }
+  })();
+
+  worksProjectsPending = request;
+  return request;
+}
+
 function normalizeProjectType(value: string | null) {
   return (value || "").trim().toLowerCase();
 }
@@ -113,7 +192,7 @@ function ProjectCard({
   return (
     <article
       onClick={() => onOpenProjectDetails(project.id)}
-      className="relative w-full max-w-[461px] cursor-pointer rounded-[34px] border border-[rgba(163,134,255,0.28)] bg-white p-5 pb-20 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 active:scale-[0.99] sm:p-6 sm:pb-24 md:p-8"
+      className="group relative w-full max-w-[461px] cursor-pointer rounded-[34px] border border-[rgba(163,134,255,0.28)] bg-white p-5 pb-20 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99] sm:p-6 sm:pb-24 md:p-8"
     >
       <div className="mb-6 flex flex-wrap items-center gap-2">
         {visibleTechStack.map((tech, idx) => (
@@ -141,18 +220,29 @@ function ProjectCard({
         ) : null}
       </div>
 
-      <div className="mb-8 h-[180px] w-full overflow-hidden rounded-[18px] bg-white sm:h-[194px]">
+      <div className="relative mb-8 h-[180px] w-full overflow-hidden rounded-[18px] bg-white sm:h-[194px]">
         {project.thumbnailUrl ? (
           <img
             src={project.thumbnailUrl}
             alt={project.title}
-            className="h-full w-full object-contain object-center"
+            className="h-full w-full object-contain object-center transition-transform duration-300 ease-out group-hover:scale-[1.03]"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <ProjectImageIcon />
           </div>
         )}
+
+        <button
+          type="button"
+          aria-label={`Open project details for ${project.title}`}
+          onClick={() => {
+            onOpenProjectDetails(project.id);
+          }}
+          className="absolute bottom-3 right-3 inline-flex h-[40px] w-[40px] items-center justify-center rounded-[12px] bg-primary text-[20px] font-semibold leading-none text-white transition-all duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 hover:opacity-90 active:translate-y-0 active:scale-95 sm:h-[44px] sm:w-[44px] sm:rounded-[14px]"
+        >
+          ↗
+        </button>
       </div>
 
       <div>
@@ -162,16 +252,6 @@ function ProjectCard({
         </p>
       </div>
 
-      <button
-        type="button"
-        aria-label={`Open project details for ${project.title}`}
-        onClick={() => {
-          onOpenProjectDetails(project.id);
-        }}
-        className="absolute bottom-6 right-6 inline-flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-primary text-[20px] font-semibold leading-none text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 active:translate-y-0 active:scale-95 sm:bottom-8 sm:right-8 sm:h-[48px] sm:w-[48px] sm:rounded-[16px] sm:text-[24px]"
-      >
-        ↗
-      </button>
     </article>
   );
 }
@@ -181,11 +261,12 @@ export default function WorksPage({
 }: {
   onOpenProjectDetails: (projectId: string) => void;
 }) {
-  const [projects, setProjects] = useState<ProjectCardData[]>([]);
+  const pageRef = useRef<HTMLElement | null>(null);
+  const [projects, setProjects] = useState<ProjectCardData[]>(worksProjectsCache || []);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [selectedProjectType, setSelectedProjectType] = useState<string>("All");
   const [selectedTechStacks, setSelectedTechStacks] = useState<string[]>([]);
-  const [hasFetchedProjects, setHasFetchedProjects] = useState(false);
+  const [hasFetchedProjects, setHasFetchedProjects] = useState(Boolean(worksProjectsCache));
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   function applyTechFilter(skill: string) {
@@ -264,67 +345,36 @@ export default function WorksPage({
   }, []);
 
   useEffect(() => {
-    function parseTechStack(value: string | null) {
-      if (!value) {
-        return [] as string[];
-      }
-
-      const trimmedValue = value.trim();
-
-      if (trimmedValue.startsWith("[") && trimmedValue.endsWith("]")) {
-        try {
-          const parsedValue = JSON.parse(trimmedValue);
-          if (Array.isArray(parsedValue)) {
-            return parsedValue
-              .map((item) => (typeof item === "string" ? item.trim() : ""))
-              .filter(Boolean);
-          }
-        } catch {
-        }
-      }
-
-      return trimmedValue
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-    }
+    let isUnmounted = false;
 
     async function fetchProjects() {
       try {
-        const { data } = await supabase
-          .from("projects")
-          .select("id, title, description, thumbnail_url, project_type, category, live_demo_url, github_repo_url, project_skills(skill_id, tech_stack(skill_name))")
-          .order("created_at", { ascending: false });
+        const cachedProjects = worksProjectsCache;
+        if (cachedProjects) {
+          setProjects(cachedProjects);
+          setHasFetchedProjects(true);
+          return;
+        }
 
-        const mappedProjects = (data as ProjectRow[] | null)?.map((project) => {
-          const relatedSkills = (project.project_skills || [])
-            .map((item) => item.tech_stack?.skill_name?.trim() || "")
-            .filter(Boolean);
-
-          const tags = relatedSkills.length > 0 ? relatedSkills : parseTechStack(project.category);
-
-          return {
-            id: project.id,
-            title: project.title || "Untitled Project",
-            description: project.description || "No description available.",
-            thumbnailUrl: project.thumbnail_url || "",
-            projectType: project.project_type,
-            techStack: tags,
-            category: project.category,
-            liveDemoUrl: project.live_demo_url,
-            githubRepoUrl: project.github_repo_url,
-            project_skills: project.project_skills || [],
-          };
-        }) || [];
-
-        setProjects(mappedProjects);
+        const mappedProjects = await prefetchWorksPageData();
+        if (!isUnmounted) {
+          setProjects(mappedProjects);
+        }
       } finally {
-        setHasFetchedProjects(true);
+        if (!isUnmounted) {
+          setHasFetchedProjects(true);
+        }
       }
     }
 
-    fetchProjects();
+    void fetchProjects();
+
+    return () => {
+      isUnmounted = true;
+    };
   }, []);
+
+  // Reveal animation removed: cards are now visible immediately
 
   const categories = useMemo(() => {
     const categorySet = new Set(defaultCategories);
@@ -437,7 +487,7 @@ export default function WorksPage({
   }
 
   return (
-    <section className="w-full bg-transparent px-5 py-6 lg:px-6">
+    <section ref={pageRef} className="w-full bg-transparent px-5 py-6 lg:px-6">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-6 lg:flex-row lg:gap-8">
         <aside className="hidden w-full max-w-[270px] shrink-0 self-start lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
           <div className="mb-6">
@@ -495,16 +545,19 @@ export default function WorksPage({
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-10 xl:grid-cols-2">
-              {filteredProjects.map((project) => (
-                <ProjectCard
+              {filteredProjects.map((project, index) => (
+                <div
                   key={project.id}
-                  project={project}
-                  onOpenProjectDetails={onOpenProjectDetails}
-                  onClickSkillTag={(skill) => {
-                    queueWorksTechFilter(skill);
-                    applyTechFilter(skill);
-                  }}
-                />
+                >
+                  <ProjectCard
+                    project={project}
+                    onOpenProjectDetails={onOpenProjectDetails}
+                    onClickSkillTag={(skill) => {
+                      queueWorksTechFilter(skill);
+                      applyTechFilter(skill);
+                    }}
+                  />
+                </div>
               ))}
             </div>
           )}

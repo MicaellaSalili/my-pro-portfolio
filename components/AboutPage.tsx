@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { PageContext } from "./RootLayoutClient";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
@@ -34,7 +34,7 @@ const toolGroups = [
   },
 ];
 
-const ABOUT_PAGE_CACHE_KEY = "about_page_cache_v1";
+const ABOUT_PAGE_CACHE_KEY = "about_page_cache_v3";
 
 type ProfileData = {
   name: string | null;
@@ -111,14 +111,16 @@ type ToolGroupData = {
 
 type AboutPageCacheData = {
   profile: ProfileData | null;
-  education: EducationData | null;
+  education: EducationData[];
   certificationList: CertificationData[];
   experienceList: ExperienceWithSkills[];
   toolSkills: TechStackData[];
   specializationList: SpecializationData[];
-  experienceValue: string;
-  projectsValue: string;
+  milestones: MilestoneData[];
 };
+
+let aboutPageMemoryCache: AboutPageCacheData | null = null;
+let aboutPagePending: Promise<AboutPageCacheData> | null = null;
 
 function readAboutPageCache(): AboutPageCacheData | null {
   if (typeof window === "undefined") {
@@ -143,6 +145,126 @@ function writeAboutPageCache(value: AboutPageCacheData) {
   }
 
   window.localStorage.setItem(ABOUT_PAGE_CACHE_KEY, JSON.stringify(value));
+}
+
+async function fetchAboutPageDataFromServer(): Promise<AboutPageCacheData> {
+  const [
+    profileResult,
+    educationResult,
+    certificationsResult,
+    experienceResult,
+    techStackResult,
+    experienceSkillsResult,
+    specializationsResult,
+    projectCountResult,
+    milestonesResult,
+  ] = await Promise.all([
+    supabase
+      .from("profile")
+      .select("name, about_summary, resume_download_url")
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("education")
+      .select("degree, school, period, elective"),
+    supabase
+      .from("certifications")
+      .select("name, issuer, date_earned, credential_url"),
+    supabase
+      .from("experience")
+      .select("id, role, company, location, period, description, sort_order, proof_url")
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("tech_stack")
+      .select("id, category, skill_name"),
+    supabase
+      .from("experience_skills")
+      .select("experience_id, skill_id, tech_stack(skill_name)"),
+    supabase
+      .from("specializations")
+      .select("id, title, description")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    supabase.from("projects").select("id", { count: "exact", head: true }),
+    supabase.from("milestones").select("label, value"),
+  ]);
+
+  const profileData = (profileResult.data as ProfileData | null) || null;
+  const educationData = (educationResult.data as EducationData[]) || [];
+  const certificationsData = (certificationsResult.data as CertificationData[]) || [];
+  const experiencesData = (experienceResult.data || []) as ExperienceData[];
+  const experienceSkills = (experienceSkillsResult.data || []) as ExperienceSkillData[];
+  const techStackData = (techStackResult.data || []) as TechStackData[];
+  const specializationsData = (specializationsResult.data || []) as SpecializationData[];
+
+  const skillByExperience = new Map<string, string[]>();
+  experienceSkills.forEach((row) => {
+    const skill = row.tech_stack?.skill_name?.trim() || "";
+    if (!skill) {
+      return;
+    }
+
+    const current = skillByExperience.get(row.experience_id) || [];
+    current.push(skill);
+    skillByExperience.set(row.experience_id, current);
+  });
+
+  const mappedExperience: ExperienceWithSkills[] = experiencesData.map((item) => ({
+    id: item.id,
+    role: item.role || "",
+    company: item.company || "",
+    location: item.location || "",
+    date: item.period || "",
+    summary: item.description || "",
+    proofUrl: item.proof_url,
+    skills: (skillByExperience.get(item.id) || []).slice(0, 4),
+  }));
+
+  const projectCount = projectCountResult.count || 0;
+  const milestones = ((milestonesResult.data || []) as MilestoneData[]).filter(
+    (item) => (item.label || "").trim() || (item.value || "").trim()
+  );
+
+  const fallbackMilestones: MilestoneData[] = milestones.length
+    ? milestones
+    : [
+        { label: "Experience", value: `${experiencesData.length}` },
+        { label: "Projects", value: `${projectCount}` },
+      ];
+
+  return {
+    profile: profileData,
+    education: educationData,
+    certificationList: certificationsData,
+    experienceList: mappedExperience,
+    toolSkills: techStackData,
+    specializationList: specializationsData,
+    milestones: fallbackMilestones,
+  };
+}
+
+export function prefetchAboutPageData(): Promise<AboutPageCacheData> {
+  if (aboutPageMemoryCache) {
+    return Promise.resolve(aboutPageMemoryCache);
+  }
+
+  if (aboutPagePending) {
+    return aboutPagePending;
+  }
+
+  const request = (async () => {
+    try {
+      const nextData = await fetchAboutPageDataFromServer();
+      aboutPageMemoryCache = nextData;
+      writeAboutPageCache(nextData);
+      return nextData;
+    } finally {
+      aboutPagePending = null;
+    }
+  })();
+
+  aboutPagePending = request;
+  return request;
 }
 
 function normalizeToolCategory(value: string | null) {
@@ -183,134 +305,65 @@ function SectionBadge({ label }: { label: string }) {
 
 export default function AboutPage() {
   const pageContext = useContext(PageContext);
-  const [cachedPageData] = useState<AboutPageCacheData | null>(() => readAboutPageCache());
+  const pageRef = useRef<HTMLElement | null>(null);
+  const [cachedPageData] = useState<AboutPageCacheData | null>(() => {
+    const initialData = aboutPageMemoryCache || readAboutPageCache();
+    if (initialData) {
+      aboutPageMemoryCache = initialData;
+    }
+    return initialData;
+  });
   const [profile, setProfile] = useState<ProfileData | null>(cachedPageData?.profile || null);
-  const [education, setEducation] = useState<EducationData | null>(cachedPageData?.education || null);
+  const [education, setEducation] = useState<EducationData[]>(cachedPageData?.education || []);
   const [certificationList, setCertificationList] = useState<CertificationData[]>(cachedPageData?.certificationList || []);
   const [experienceList, setExperienceList] = useState<ExperienceWithSkills[]>(cachedPageData?.experienceList || []);
   const [toolSkills, setToolSkills] = useState<TechStackData[]>(cachedPageData?.toolSkills || []);
   const [specializationList, setSpecializationList] = useState<SpecializationData[]>(cachedPageData?.specializationList || []);
-  const [experienceValue, setExperienceValue] = useState(cachedPageData?.experienceValue || "");
-  const [projectsValue, setProjectsValue] = useState(cachedPageData?.projectsValue || "");
+  const [milestones, setMilestones] = useState<MilestoneData[]>(cachedPageData?.milestones || []);
   const [activeSidebarItem, setActiveSidebarItem] = useState(sidebarItems[0].id);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [activeProofUrl, setActiveProofUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    let isUnmounted = false;
+
+    const applyAboutData = (nextData: AboutPageCacheData) => {
+      setProfile(nextData.profile);
+      setEducation(nextData.education);
+      setCertificationList(nextData.certificationList);
+      setExperienceList(nextData.experienceList);
+      setToolSkills(nextData.toolSkills);
+      setSpecializationList(nextData.specializationList);
+      setMilestones(nextData.milestones);
+    };
+
     async function fetchAboutData() {
-      const [
-        profileResult,
-        educationResult,
-        certificationsResult,
-        experienceResult,
-        techStackResult,
-        experienceSkillsResult,
-        specializationsResult,
-        projectCountResult,
-        milestonesResult,
-      ] = await Promise.all([
-        supabase
-          .from("profile")
-          .select("name, about_summary, resume_download_url")
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("education")
-          .select("degree, school, period, elective")
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("certifications")
-          .select("name, issuer, date_earned, credential_url")
-          .limit(3),
-        supabase
-          .from("experience")
-          .select("id, role, company, location, period, description, sort_order, proof_url")
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("tech_stack")
-          .select("id, category, skill_name"),
-        supabase
-          .from("experience_skills")
-          .select("experience_id, skill_id, tech_stack(skill_name)"),
-        supabase
-          .from("specializations")
-          .select("id, title, description")
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true })
-          .limit(3),
-        supabase.from("projects").select("id", { count: "exact", head: true }),
-        supabase.from("milestones").select("label, value"),
-      ]);
+      const initialCachedData = aboutPageMemoryCache || cachedPageData;
+      if (initialCachedData) {
+        applyAboutData(initialCachedData);
+      }
 
-      const profileData = (profileResult.data as ProfileData | null) || null;
-      const educationData = (educationResult.data as EducationData | null) || null;
-      const certificationsData = (certificationsResult.data as CertificationData[]) || [];
-      const experiencesData = (experienceResult.data || []) as ExperienceData[];
-      const experienceSkills = (experienceSkillsResult.data || []) as ExperienceSkillData[];
-      const techStackData = (techStackResult.data || []) as TechStackData[];
-      const specializationsData = (specializationsResult.data || []) as SpecializationData[];
+      const nextData = await prefetchAboutPageData();
+      if (isUnmounted) {
+        return;
+      }
 
-      const skillByExperience = new Map<string, string[]>();
-      experienceSkills.forEach((row) => {
-        const skill = row.tech_stack?.skill_name?.trim() || "";
-        if (!skill) {
-          return;
-        }
-
-        const current = skillByExperience.get(row.experience_id) || [];
-        current.push(skill);
-        skillByExperience.set(row.experience_id, current);
-      });
-
-      const mappedExperience: ExperienceWithSkills[] = experiencesData.map((item) => ({
-        id: item.id,
-        role: item.role || "",
-        company: item.company || "",
-        location: item.location || "",
-        date: item.period || "",
-        summary: item.description || "",
-        proofUrl: item.proof_url,
-        skills: (skillByExperience.get(item.id) || []).slice(0, 4),
-      }));
-
-      const projectCount = projectCountResult.count || 0;
-      const milestones = (milestonesResult.data || []) as MilestoneData[];
-      const experienceMilestone = milestones.find((item) =>
-        (item.label || "").toLowerCase().includes("experience")
-      );
-      const projectsMilestone = milestones.find((item) =>
-        (item.label || "").toLowerCase().includes("project")
-      );
-
-      const nextExperienceValue = experienceMilestone?.value || `${experiencesData.length}`;
-      const nextProjectsValue = projectsMilestone?.value || `${projectCount}`;
-
-      setProfile(profileData);
-      setEducation(educationData);
-      setCertificationList(certificationsData);
-      setExperienceList(mappedExperience);
-      setToolSkills(techStackData);
-      setSpecializationList(specializationsData);
-      setExperienceValue(nextExperienceValue);
-      setProjectsValue(nextProjectsValue);
-
-      writeAboutPageCache({
-        profile: profileData,
-        education: educationData,
-        certificationList: certificationsData,
-        experienceList: mappedExperience,
-        toolSkills: techStackData,
-        specializationList: specializationsData,
-        experienceValue: nextExperienceValue,
-        projectsValue: nextProjectsValue,
-      });
+      applyAboutData(nextData);
     }
 
-    fetchAboutData();
-  }, []);
+    void fetchAboutData();
+
+    return () => {
+      isUnmounted = true;
+    };
+  }, [cachedPageData]);
 
   const aboutSummary = profile?.about_summary?.trim() || "";
   const displayAboutSummary = aboutSummary || "No about summary yet.";
+  const aboutParagraphs = (aboutSummary || "")
+    .split(/\n\s*\n/g)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
 
   const groupedTools = useMemo<ToolGroupData[]>(() => {
     const groups = new Map<string, string[]>();
@@ -409,10 +462,67 @@ export default function AboutPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const rootElement = pageRef.current;
+    if (!rootElement) {
+      return;
+    }
+
+    const revealElements = Array.from(
+      rootElement.querySelectorAll<HTMLElement>("[data-about-reveal]")
+    );
+
+    if (revealElements.length === 0) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+
+          const target = entry.target as HTMLElement;
+          target.classList.remove("opacity-0", "translate-y-5");
+          target.classList.add("opacity-100", "translate-y-0");
+          observer.unobserve(target);
+        });
+      },
+      {
+        threshold: 0.15,
+        rootMargin: "0px 0px -10% 0px",
+      }
+    );
+
+    revealElements.forEach((element) => observer.observe(element));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [experienceList.length, certificationList.length, groupedTools.length, specializationList.length]);
+
+  useEffect(() => {
+    if (!activeProofUrl) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveProofUrl(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [activeProofUrl]);
+
   return (
-    <section className="w-full bg-transparent px-5 py-6 lg:px-6">
+    <section ref={pageRef} className="w-full bg-transparent px-5 py-6 lg:px-6">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-6 lg:flex-row lg:gap-10">
-        <aside className="hidden w-full max-w-[270px] shrink-0 self-start lg:sticky lg:top-24 lg:block">
+        <aside data-about-reveal className="hidden w-full max-w-[270px] shrink-0 self-start translate-y-5 opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block">
           <h2 className="mb-6 text-[22px] font-bold leading-none text-black">About</h2>
           <ul className="space-y-3">
             {sidebarItems.map((item) => (
@@ -424,8 +534,8 @@ export default function AboutPage() {
                   }}
                   className={`h-[50px] w-full rounded-[999px] border px-4 text-left text-[20px] leading-none transition-all ${
                     activeSidebarItem === item.id
-                      ? "border-primary bg-primary text-white font-bold shadow-[0_6px_18px_rgba(128,94,255,0.35)]"
-                      : "border-[#DCE0E8] bg-transparent font-semibold text-secondary hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary active:translate-y-0 active:scale-[0.99]"
+                      ? "border-primary bg-primary text-white font-bold shadow-[0_6px_18px_rgba(128,94,255,0.35)] active:translate-y-[1px] active:scale-[0.99]"
+                      : "border-[#DCE0E8] bg-transparent font-semibold text-secondary hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary active:translate-y-[1px] active:scale-[0.98]"
                   }`}
                 >
                   {item.label}
@@ -447,25 +557,33 @@ export default function AboutPage() {
             </button>
           </div>
 
-          <section id="profile" className="scroll-mt-28 flex flex-col gap-6 lg:flex-row lg:justify-between">
+          <section id="profile" data-about-reveal className="scroll-mt-28 flex translate-y-5 flex-col gap-6 opacity-0 transition-all duration-700 ease-out lg:flex-row lg:justify-between">
             <div className="max-w-[700px]">
               <SectionBadge label="About Me" />
-              <p className="mt-6 max-w-[650px] text-[17px] font-medium leading-[1.4] text-secondary transition-opacity duration-300 sm:text-[20px] sm:leading-[1.35]">
-                {displayAboutSummary}
-              </p>
+              {aboutParagraphs.length === 0 ? (
+                <p className="mt-6 max-w-[650px] text-[17px] font-medium leading-[1.4] text-secondary transition-opacity duration-300 sm:text-[20px] sm:leading-[1.35]">
+                  {displayAboutSummary}
+                </p>
+              ) : (
+                <div className="mt-6 max-w-[650px] space-y-4 text-[17px] font-medium leading-[1.4] text-secondary transition-opacity duration-300 sm:text-[20px] sm:leading-[1.35]">
+                  {aboutParagraphs.map((paragraph, index) => (
+                    <p key={`${paragraph.slice(0, 20)}-${index}`}>{paragraph}</p>
+                  ))}
+                </div>
+              )}
 
               <div className="mt-8 flex flex-wrap gap-4">
                 <a
                   href={profile?.resume_download_url || ""}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-[48px] items-center gap-2 rounded-[24px] bg-black px-5 text-[14px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
+                  className="inline-flex h-[48px] items-center gap-2 rounded-[24px] bg-black px-5 text-[14px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95 active:translate-y-[1px] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
                 >
                   ⬇ Download Resume
                 </a>
                 <button
                   type="button"
-                  className="inline-flex h-[48px] items-center gap-2 rounded-[24px] border border-primary bg-white px-6 text-[14px] font-semibold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:text-white active:translate-y-0 active:scale-[0.99]"
+                  className="inline-flex h-[48px] items-center gap-2 rounded-[24px] border border-primary bg-white px-6 text-[14px] font-semibold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-[color-mix(in_srgb,var(--color-primary)_10%,white)] active:translate-y-[1px] active:scale-[0.98]"
                 >
                   ◔ Contact Me
                 </button>
@@ -473,37 +591,50 @@ export default function AboutPage() {
             </div>
 
             <div className="flex w-full max-w-full flex-col gap-4 pt-1 sm:max-w-[300px] sm:gap-6 sm:pt-5">
-              <article className="rounded-[10px] border border-primary bg-white px-4 py-5 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99]">
-                <p className="text-[12px] font-semibold uppercase text-[#D3D3D3]">Experience</p>
-                <p className="mt-1 text-[36px] font-bold leading-none text-primary">{experienceValue || "0"}</p>
-              </article>
-              <article className="rounded-[10px] border border-primary bg-white px-4 py-5 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99]">
-                <p className="text-[12px] font-semibold uppercase text-[#D3D3D3]">Projects</p>
-                <p className="mt-1 text-[36px] font-bold leading-none text-primary">{projectsValue || "0"}</p>
-              </article>
+              {milestones.length === 0 ? (
+                <article className="rounded-[10px] border border-primary bg-white px-4 py-5 shadow-[8px_8px_0px_0px_var(--color-primary)]">
+                  <p className="text-[14px] font-medium text-secondary">No milestones yet.</p>
+                </article>
+              ) : (
+                milestones.map((item, index) => (
+                  <article
+                    key={`${item.label || "milestone"}-${item.value || "value"}-${index}`}
+                    className="rounded-[10px] border border-primary bg-white px-4 py-5 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99]"
+                  >
+                    <p className="text-[12px] font-semibold uppercase text-[#D3D3D3]">{item.label || "Milestone"}</p>
+                    <p className="mt-1 text-[36px] font-bold leading-none text-primary">{item.value || "0"}</p>
+                  </article>
+                ))
+              )}
             </div>
           </section>
 
-          <section id="credentials" className="scroll-mt-28">
+          <section id="credentials" data-about-reveal className="scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
             <SectionBadge label="Credentials" />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1fr]">
               <article className="rounded-[24px] bg-white p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)]">
                 <h3 className="text-[20px] font-bold text-black">Education</h3>
                 <div className="mt-6 rounded-[14px] bg-[#F7F7F8] p-4">
-                  {education?.degree ? <p className="text-[16px] font-semibold text-black">{education.degree}</p> : null}
-                  {education?.school || education?.period ? (
-                    <p className="mt-1 text-[14px] text-secondary">
-                      {education?.school || ""} {education?.period ? `(${education.period})` : ""}
-                    </p>
-                  ) : null}
-                  {!education?.degree && !education?.school && !education?.period ? (
+                  {education.length === 0 ? (
                     <p className="text-[14px] text-secondary">No education data yet.</p>
-                  ) : null}
-                  {education?.elective ? (
-                    <span className="mt-3 inline-block rounded-[6px] bg-[color-mix(in_srgb,var(--color-primary)_20%,white)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-primary">
-                      {`${education.elective}`}
-                    </span>
-                  ) : null}
+                  ) : education.map((item, index) => (
+                    <div
+                      key={`${item.degree || "degree"}-${item.school || "school"}-${item.period || "period"}-${index}`}
+                      className="mb-4 last:mb-0"
+                    >
+                      {item.degree ? <p className="text-[16px] font-semibold text-black">{item.degree}</p> : null}
+                      {item.school || item.period ? (
+                        <p className="mt-1 text-[14px] text-secondary">
+                          {item.school || ""} {item.period ? `(${item.period})` : ""}
+                        </p>
+                      ) : null}
+                      {item.elective ? (
+                        <span className="mt-3 inline-block rounded-[6px] bg-[color-mix(in_srgb,var(--color-primary)_20%,white)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-primary">
+                          {`${item.elective}`}
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               </article>
 
@@ -525,12 +656,12 @@ export default function AboutPage() {
                           href={item.credential_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-secondary transition-all duration-200 hover:text-primary"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-400 text-white transition-all duration-200 hover:bg-violet-500 active:scale-[0.96]"
                         >
                           ↗
                         </a>
                       ) : (
-                        <span className="text-secondary">↗</span>
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-400 text-white">↗</span>
                       )}
                     </div>
                   ))}
@@ -539,15 +670,19 @@ export default function AboutPage() {
             </div>
           </section>
 
-          <section id="experience" className="scroll-mt-28">
+          <section id="experience" data-about-reveal className="scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
             <SectionBadge label="My Experience" />
             <div className="space-y-5">
               {experienceList.length === 0 ? (
                 <article className="rounded-[14px] bg-white p-5">
                   <p className="text-[14px] text-secondary">No experience data yet.</p>
                 </article>
-              ) : experienceList.map((item) => (
-                <article key={item.id} className="rounded-[14px] bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)] active:translate-y-0">
+              ) : experienceList.map((item, index) => (
+                <article
+                  key={item.id}
+                  style={{ transitionDelay: `${Math.min(index, 6) * 50}ms` }}
+                  className="rounded-[14px] bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)] active:translate-y-0"
+                >
                   <div className="mb-3 flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4">
                     <div>
                       {item.role ? <p className="text-[20px] font-bold text-black">{item.role}</p> : null}
@@ -569,13 +704,22 @@ export default function AboutPage() {
                     ))}
                     </div>
                   ) : null}
+                  {item.proofUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setActiveProofUrl(item.proofUrl)}
+                      className="mt-4 inline-flex h-[36px] items-center rounded-[999px] border border-primary bg-white px-4 text-[12px] font-semibold uppercase tracking-[0.08em] text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-[color-mix(in_srgb,var(--color-primary)_10%,white)] active:translate-y-[1px] active:scale-[0.97]"
+                    >
+                      View
+                    </button>
+                  ) : null}
                 </article>
               ))}
             </div>
           </section>
 
-          <section id="tech-stacks" className="scroll-mt-28">
-            <SectionBadge label="The Tools I Use" />
+          <section id="tech-stacks" data-about-reveal className="scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
+            <SectionBadge label="What I Use" />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {groupedTools.map((group) => (
                 <article
@@ -603,7 +747,7 @@ export default function AboutPage() {
             </div>
           </section>
 
-          <section id="specializations" className="scroll-mt-28">
+          <section id="specializations" data-about-reveal className="scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
             <SectionBadge label="What I Can Offer" />
             <h3 className="mb-4 text-center text-[24px] font-medium text-black">Core Specializations</h3>
             {specializationList.length === 0 ? (
@@ -627,7 +771,7 @@ export default function AboutPage() {
                       onClick={() => {
                         pageContext?.setCurrentPage("works");
                       }}
-                      className="mt-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary transition-all duration-200 hover:translate-x-0.5 hover:text-primary/80 active:translate-x-0 active:scale-95"
+                      className="mt-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary transition-all duration-200 hover:translate-x-0.5 hover:text-primary/80 active:translate-x-[1px] active:scale-[0.97]"
                     >
                       View Related Works ↗
                     </button>
@@ -671,8 +815,8 @@ export default function AboutPage() {
                     }}
                     className={`h-[42px] w-full rounded-[999px] border px-4 text-left text-[14px] leading-none transition-all ${
                       activeSidebarItem === item.id
-                        ? "border-primary bg-primary font-bold text-white shadow-[0_6px_18px_rgba(128,94,255,0.35)]"
-                        : "border-[#DCE0E8] bg-transparent font-semibold text-secondary"
+                        ? "border-primary bg-primary font-bold text-white shadow-[0_6px_18px_rgba(128,94,255,0.35)] active:translate-y-[1px] active:scale-[0.99]"
+                        : "border-[#DCE0E8] bg-transparent font-semibold text-secondary active:translate-y-[1px] active:scale-[0.98]"
                     }`}
                   >
                     {item.label}
@@ -680,6 +824,45 @@ export default function AboutPage() {
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      ) : null}
+
+      {activeProofUrl ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Experience proof preview"
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 px-4"
+          onClick={() => setActiveProofUrl(null)}
+        >
+          <div
+            className="relative w-full max-w-[920px] overflow-hidden rounded-[16px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.25)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[#ECECF2] px-4 py-3">
+              <h3 className="text-[14px] font-semibold uppercase tracking-[0.06em] text-secondary">
+               Preview
+              </h3>
+              <button
+                type="button"
+                onClick={() => setActiveProofUrl(null)}
+                className="inline-flex h-[32px] w-[32px] items-center justify-center rounded-full border border-[#E2E4EA] text-secondary transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--color-primary)_10%,white)] hover:text-primary active:scale-[0.94]"
+                aria-label="Close proof preview"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="relative h-[65vh] min-h-[360px] bg-[#F7F7F8]">
+              <img
+                src={activeProofUrl}
+                alt="Experience proof"
+                className="h-full w-full object-contain select-none"
+                draggable={false}
+                onContextMenu={(event) => event.preventDefault()}
+              />
+            </div>
           </div>
         </div>
       ) : null}

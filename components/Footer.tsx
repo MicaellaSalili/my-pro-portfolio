@@ -66,12 +66,12 @@ export default function Footer({
   };
 
   return (
-    <footer className="mx-auto mt-12 flex w-full max-w-[1440px] flex-col items-center justify-between rounded-tl-[100px] rounded-tr-[100px] bg-primary px-[10px] py-[30px] text-white shadow-[inset_0px_4px_4px_0px_#805eff]">
-      <div className="mb-6 h-[4px] w-[305px] rounded-full bg-white/80" />
-      <div className="grid w-full max-w-[1200px] grid-cols-1 gap-4 border-b border-white/60 px-8 pb-8 pt-8 md:grid-cols-3">
-        <div className="px-[10px]">
-          <h4 className="mb-4 text-[20px] font-medium">Contact Me</h4>
-          <ul className="space-y-[6px] text-[16px] leading-[1.4]">
+    <footer className="mx-auto mt-12 flex w-full max-w-[1440px] flex-col items-center justify-between rounded-tl-[60px] rounded-tr-[60px] bg-primary px-2 py-5 text-white shadow-[inset_0px_4px_4px_0px_#805eff] sm:rounded-tl-[100px] sm:rounded-tr-[100px] sm:px-[10px] sm:py-[30px]">
+      <div className="mb-4 h-[3px] w-[120px] rounded-full bg-white/80 sm:mb-6 sm:h-[4px] sm:w-[305px]" />
+      <div className="flex w-full max-w-[1200px] flex-col gap-6 border-b border-white/60 px-2 pb-6 pt-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-8 sm:pb-8 sm:pt-8">
+        <div className="px-1 sm:px-[10px] mb-2 sm:mb-0">
+          <h4 className="mb-2 text-[18px] font-medium sm:mb-4 sm:text-[20px]">Contact Me</h4>
+          <ul className="space-y-[4px] text-[15px] leading-[1.4] sm:space-y-[6px] sm:text-[16px]">
             {contactLinks.map((item) => (
               <li key={item.label}>
                 {renderFooterItem(item)}
@@ -80,9 +80,9 @@ export default function Footer({
           </ul>
         </div>
 
-        <div className="px-[10px]">
-          <h4 className="mb-4 text-[20px] font-medium">Works</h4>
-          <ul className="space-y-[6px] text-[16px] leading-[1.4]">
+        <div className="px-1 sm:px-[10px] mb-2 sm:mb-0">
+          <h4 className="mb-2 text-[18px] font-medium sm:mb-4 sm:text-[20px]">Works</h4>
+          <ul className="space-y-[4px] text-[15px] leading-[1.4] sm:space-y-[6px] sm:text-[16px]">
             {worksLinks.map((item) => (
               <li key={item.label}>
                 {renderFooterItem(item)}
@@ -91,9 +91,9 @@ export default function Footer({
           </ul>
         </div>
 
-        <div className="px-[10px]">
-          <h4 className="mb-4 text-[20px] font-medium">About</h4>
-          <ul className="space-y-[6px] text-[16px] leading-[1.4]">
+        <div className="px-1 sm:px-[10px]">
+          <h4 className="mb-2 text-[18px] font-medium sm:mb-4 sm:text-[20px]">About</h4>
+          <ul className="space-y-[4px] text-[15px] leading-[1.4] sm:space-y-[6px] sm:text-[16px]">
             {aboutLinks.map((item) => (
               <li key={item.label}>
                 {renderFooterItem(item)}
@@ -102,7 +102,7 @@ export default function Footer({
           </ul>
         </div>
       </div>
-      <p className="mt-4 text-center text-[14px] font-bold">© 2026 {ownerName || "Micaalla Salili"}. All rights reserved.</p>
+      <p className="mt-3 text-center text-[13px] font-bold sm:mt-4 sm:text-[14px]">© 2026 {ownerName || "Micaalla Salili"}. All rights reserved.</p>
     </footer>
   );
 }

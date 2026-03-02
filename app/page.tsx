@@ -1,13 +1,13 @@
 "use client";
 // Main page with client-side routing for all pages
 
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { PageContext } from "../components/RootLayoutClient";
-import HomePage from "../components/HomePage";
-import WorksPage from "../components/WorksPage";
-import AboutPage from "../components/AboutPage";
-import ContactPage from "../components/ContactPage";
-import ProjectDetailsPage from "../components/ProjectDetailsPage";
+import HomePage, { prefetchHomePageData } from "../components/HomePage";
+import WorksPage, { prefetchWorksPageData } from "../components/WorksPage";
+import AboutPage, { prefetchAboutPageData } from "../components/AboutPage";
+import ContactPage, { prefetchContactPageData } from "../components/ContactPage";
+import ProjectDetailsPage, { prefetchProjectDetails } from "../components/ProjectDetailsPage";
 
 export default function Home() {
   const context = useContext(PageContext);
@@ -15,6 +15,26 @@ export default function Home() {
   if (!context) return null;
   
   const { currentPage, setCurrentPage, selectedProjectId, setSelectedProjectId } = context;
+
+  useEffect(() => {
+    void Promise.allSettled([
+      prefetchHomePageData(),
+      prefetchWorksPageData(),
+      prefetchAboutPageData(),
+      prefetchContactPageData(),
+    ]);
+  }, []);
+
+  const openProjectDetails = async (projectId: string) => {
+    setSelectedProjectId(projectId);
+
+    try {
+      await prefetchProjectDetails(projectId);
+    } catch {
+    }
+
+    setCurrentPage("project-details");
+  };
 
   // Render the appropriate page based on current page state
   const renderPage = () => {
@@ -24,8 +44,7 @@ export default function Home() {
           <HomePage
             setCurrentPage={setCurrentPage}
             onOpenProjectDetails={(projectId) => {
-              setSelectedProjectId(projectId);
-              setCurrentPage("project-details");
+              void openProjectDetails(projectId);
             }}
           />
         );
@@ -33,8 +52,7 @@ export default function Home() {
         return (
           <WorksPage
             onOpenProjectDetails={(projectId) => {
-              setSelectedProjectId(projectId);
-              setCurrentPage("project-details");
+              void openProjectDetails(projectId);
             }}
           />
         );
@@ -54,8 +72,7 @@ export default function Home() {
           <HomePage
             setCurrentPage={setCurrentPage}
             onOpenProjectDetails={(projectId) => {
-              setSelectedProjectId(projectId);
-              setCurrentPage("project-details");
+              void openProjectDetails(projectId);
             }}
           />
         );

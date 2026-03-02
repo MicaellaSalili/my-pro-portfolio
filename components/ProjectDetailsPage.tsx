@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
 import SkillTag from "./SkillTag";
@@ -20,6 +20,8 @@ type ProjectDetailsData = {
   live_demo_url: string | null;
   live_project_url: string | null;
   github_repo_url: string | null;
+  figma_documentation_url: string | null;
+  figma_image_url: string | null;
   project_skills?: {
     skill_id?: string;
     tech_stack?: {
@@ -32,36 +34,134 @@ type ProfileData = {
   name?: string | null;
 };
 
-function parseFeatureItems(value: unknown): string[] {
+type FeatureItem = {
+  title: string;
+  description: string;
+};
+
+const projectDetailsSelect = "id, title, hook, description, thumbnail_url, overview, goal, my_role, features, design_philosophy, impact_reflection, live_demo_url, live_project_url, github_repo_url, figma_documentation_url, figma_image_url, project_skills(skill_id, tech_stack(skill_name))";
+
+const projectDetailsCache = new Map<string, ProjectDetailsData>();
+const projectDetailsPending = new Map<string, Promise<ProjectDetailsData | null>>();
+
+let ownerNameCache: string | null = null;
+let ownerNamePending: Promise<string> | null = null;
+
+function fetchProjectDetailsById(projectId: string): Promise<ProjectDetailsData | null> {
+  if (projectDetailsCache.has(projectId)) {
+    return Promise.resolve(projectDetailsCache.get(projectId) || null);
+  }
+
+  const pendingRequest = projectDetailsPending.get(projectId);
+  if (pendingRequest) {
+    return pendingRequest;
+  }
+
+  const request = (async () => {
+    try {
+      const { data } = await supabase
+        .from("projects")
+        .select(projectDetailsSelect)
+        .eq("id", projectId)
+        .maybeSingle();
+
+      const projectData = (data as ProjectDetailsData | null) || null;
+      if (projectData) {
+        projectDetailsCache.set(projectId, projectData);
+      }
+
+      return projectData;
+    } finally {
+      projectDetailsPending.delete(projectId);
+    }
+  })();
+
+  projectDetailsPending.set(projectId, request);
+  return request;
+}
+
+function fetchOwnerName(): Promise<string> {
+  if (ownerNameCache !== null) {
+    return Promise.resolve(ownerNameCache);
+  }
+
+  if (ownerNamePending) {
+    return ownerNamePending;
+  }
+
+  const request = (async () => {
+    try {
+      const { data } = await supabase
+        .from("profile")
+        .select("name")
+        .limit(1)
+        .maybeSingle();
+
+      const name = ((data as ProfileData | null)?.name || "").trim();
+      ownerNameCache = name;
+      return name;
+    } finally {
+      ownerNamePending = null;
+    }
+  })();
+
+  ownerNamePending = request;
+  return request;
+}
+
+export async function prefetchProjectDetails(projectId: string) {
+  if (!projectId.trim()) {
+    return;
+  }
+
+  await Promise.all([fetchProjectDetailsById(projectId), fetchOwnerName()]);
+}
+
+function parseFeatureItems(value: unknown): FeatureItem[] {
   if (Array.isArray(value)) {
     return value
       .map((item) => {
         if (typeof item === "string") {
-          return item.trim();
+          const trimmed = item.trim();
+          if (!trimmed) {
+            return null;
+          }
+
+          return {
+            title: "Feature",
+            description: trimmed,
+          };
         }
 
         if (item && typeof item === "object") {
-          const candidate = (item as { title?: unknown; description?: unknown }).title;
-          if (typeof candidate === "string") {
-            return candidate.trim();
-          }
+          const rawTitle = (item as { title?: unknown }).title;
+          const rawDescription = (item as { description?: unknown }).description;
 
-          const fallback = (item as { description?: unknown }).description;
-          if (typeof fallback === "string") {
-            return fallback.trim();
+          const title = typeof rawTitle === "string" ? rawTitle.trim() : "";
+          const description = typeof rawDescription === "string" ? rawDescription.trim() : "";
+
+          if (title || description) {
+            return {
+              title: title || "Feature",
+              description,
+            };
           }
         }
 
-        return "";
+        return null;
       })
-      .filter(Boolean);
+      .filter((item): item is FeatureItem => Boolean(item));
   }
 
   if (typeof value === "string") {
     return value
       .split("\n")
       .map((item) => item.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((item) => ({
+        title: "Feature",
+        description: item,
+      }));
   }
 
   return [];
@@ -74,15 +174,92 @@ export default function ProjectDetailsPage({
   projectId: string | null;
   onBack: () => void;
 }) {
-  const [project, setProject] = useState<ProjectDetailsData | null>(null);
-  const [ownerName, setOwnerName] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
+  const pageRef = useRef<HTMLElement | null>(null);
+  const [project, setProject] = useState<ProjectDetailsData | null>(() => {
+    if (!projectId) {
+      return null;
+    }
+
+    return projectDetailsCache.get(projectId) || null;
+  });
+  const [ownerName, setOwnerName] = useState<string>(() => ownerNameCache || "");
+  const [isLoading, setIsLoading] = useState(() => {
+    if (!projectId) {
+      return false;
+    }
+
+    return !projectDetailsCache.has(projectId);
+  });
   const [activeSidebarItem, setActiveSidebarItem] = useState("overview");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isPageMounted, setIsPageMounted] = useState(false);
 
   useEffect(() => {
+    setIsPageMounted(false);
+    const timeoutId = window.setTimeout(() => setIsPageMounted(true), 30);
+    return () => window.clearTimeout(timeoutId);
+  }, [projectId]);
+
+  useEffect(() => {
+    const rootElement = pageRef.current;
+    if (!rootElement || isLoading) {
+      return;
+    }
+
+    const revealElements = Array.from(
+      rootElement.querySelectorAll<HTMLElement>("[data-details-reveal]")
+    );
+
+    if (revealElements.length === 0) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+
+          const target = entry.target as HTMLElement;
+          target.classList.remove("opacity-0", "translate-y-5");
+          target.classList.add("opacity-100", "translate-y-0");
+          observer.unobserve(target);
+        });
+      },
+      {
+        threshold: 0.15,
+        rootMargin: "0px 0px -10% 0px",
+      }
+    );
+
+    revealElements.forEach((element) => observer.observe(element));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isLoading, projectId, project]);
+
+  useEffect(() => {
+    let isUnmounted = false;
+
     async function fetchDetails() {
       if (!projectId) {
+        setProject(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const cachedProject = projectDetailsCache.get(projectId) || null;
+      if (cachedProject) {
+        setProject(cachedProject);
+      }
+
+      if (ownerNameCache !== null) {
+        setOwnerName(ownerNameCache);
+      }
+
+      if (cachedProject && ownerNameCache !== null) {
         setIsLoading(false);
         return;
       }
@@ -90,28 +267,29 @@ export default function ProjectDetailsPage({
       setIsLoading(true);
 
       try {
-        const [{ data: projectData }, { data: profileData }] = await Promise.all([
-          supabase
-            .from("projects")
-            .select("id, title, hook, description, thumbnail_url, overview, goal, my_role, features, design_philosophy, impact_reflection, live_demo_url, live_project_url, github_repo_url, project_skills(skill_id, tech_stack(skill_name))")
-            .eq("id", projectId)
-            .maybeSingle(),
-          supabase.from("profile").select("name").limit(1).maybeSingle(),
+        const [projectData, resolvedOwnerName] = await Promise.all([
+          fetchProjectDetailsById(projectId),
+          fetchOwnerName(),
         ]);
 
-        if (projectData) {
-          setProject(projectData as ProjectDetailsData);
+        if (isUnmounted) {
+          return;
         }
 
-        if (profileData) {
-          setOwnerName(((profileData as ProfileData).name || "").trim());
-        }
+        setProject(projectData);
+        setOwnerName(resolvedOwnerName);
       } finally {
-        setIsLoading(false);
+        if (!isUnmounted) {
+          setIsLoading(false);
+        }
       }
     }
 
     fetchDetails();
+
+    return () => {
+      isUnmounted = true;
+    };
   }, [projectId]);
 
   const techStack = useMemo(() => {
@@ -217,6 +395,32 @@ export default function ProjectDetailsPage({
     };
   }, [sidebarItems]);
 
+  useEffect(() => {
+    if (!isMobileSidebarOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsMobileSidebarOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isMobileSidebarOpen]);
+
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [projectId]);
+
   if (isLoading) {
     return (
       <section className="w-full px-5 py-6 lg:px-6">
@@ -245,18 +449,18 @@ export default function ProjectDetailsPage({
   }
 
   return (
-    <section className="w-full bg-transparent px-5 py-6 lg:px-6">
+    <section ref={pageRef} className="w-full bg-transparent px-4 py-4 md:px-5 md:py-6 lg:px-6">
       <div className="mx-auto w-full max-w-[1440px]">
-        <div className="mx-auto flex w-full max-w-[1200px] items-start gap-8 lg:gap-10">
-          <aside className="hidden w-[230px] shrink-0 lg:block lg:sticky lg:top-24">
+        <div className="mx-auto flex w-full max-w-[1200px] items-start gap-6 lg:gap-8">
+          <aside data-details-reveal className="hidden w-[242px] shrink-0 translate-y-5 opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block">
             <button
               type="button"
               onClick={onBack}
-              className="mb-4 text-left text-[16px] font-bold text-primary transition-opacity hover:opacity-80"
+              className="mb-4 text-left text-[20px] font-bold leading-none text-primary transition-opacity hover:opacity-80"
             >
               ← Back to Works
             </button>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {sidebarItems.map((item) => (
                 <button
                   key={item.id}
@@ -264,10 +468,10 @@ export default function ProjectDetailsPage({
                   onClick={() => {
                     goToSection(item.id, true);
                   }}
-                  className={`block w-full rounded-[14px] px-4 py-2 text-left text-[16px] transition-all ${
+                  className={`block min-h-[40px] w-full rounded-[20px] px-4 py-1.5 text-left text-[22px] leading-none transition-all ${
                     activeSidebarItem === item.id
-                      ? "bg-primary font-semibold text-white"
-                      : "font-medium text-secondary hover:text-primary"
+                      ? "bg-primary font-medium text-white shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]"
+                      : "font-normal text-secondary hover:text-primary"
                   }`}
                 >
                   {item.label}
@@ -276,11 +480,11 @@ export default function ProjectDetailsPage({
             </div>
           </aside>
 
-          <article className="w-full max-w-[920px]">
+          <article className="min-w-0 w-full flex-1">
             <button
               type="button"
               onClick={onBack}
-              className="mb-4 text-left text-[16px] font-bold text-primary transition-opacity hover:opacity-80 lg:hidden"
+              className="mb-4 text-left text-[18px] font-bold text-primary transition-opacity hover:opacity-80 lg:hidden"
             >
               ← Back to Works
             </button>
@@ -289,24 +493,26 @@ export default function ProjectDetailsPage({
               <button
                 type="button"
                 onClick={() => setIsMobileSidebarOpen(true)}
-                className="inline-flex h-[44px] items-center gap-2 rounded-[12px] border border-primary bg-white px-4 text-[14px] font-semibold text-primary shadow-[0_6px_16px_rgba(128,94,255,0.2)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+                className="inline-flex h-[42px] items-center gap-2 rounded-[20px] border border-primary/20 bg-white px-4 text-[14px] font-semibold text-primary shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
               >
                 <span className="text-[18px] leading-none">☰</span>
                 Sections
               </button>
             </div>
 
-            <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-              <h1 className="text-[42px] font-bold leading-none text-black">{project.title}</h1>
+            <div className={`mb-5 flex flex-wrap items-center justify-between gap-4 transition-all duration-700 ease-out ${
+              isPageMounted ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+            }`}>
+              <h1 className="break-words text-[36px] font-bold leading-none text-black transition-transform duration-300 hover:translate-x-0.5">{project.title}</h1>
               <div className="flex items-center gap-3">
                 {project.github_repo_url ? (
                   <a
                     href={project.github_repo_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-[12px] bg-black px-4 py-2 text-[14px] font-semibold text-white"
+                    className="inline-flex h-[43px] items-center rounded-[14px] bg-black px-5 text-[14px] font-semibold text-white"
                   >
-                    code
+                    Code
                   </a>
                 ) : null}
                 {project.live_demo_url ? (
@@ -314,7 +520,7 @@ export default function ProjectDetailsPage({
                     href={project.live_demo_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-[12px] bg-primary px-4 py-2 text-[14px] font-semibold text-white"
+                    className="inline-flex h-[43px] items-center rounded-[14px] bg-primary px-5 text-[14px] font-semibold text-white"
                   >
                     Watch
                   </a>
@@ -322,13 +528,26 @@ export default function ProjectDetailsPage({
               </div>
             </div>
 
-            <p className="mb-6 max-w-[780px] text-[20px] font-medium leading-[1.25] text-secondary">
+            <p className={`mb-6 max-w-[780px] break-words text-[20px] font-medium leading-[1.2] text-secondary transition-all duration-700 delay-75 ease-out ${
+              isPageMounted ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+            }`}>
               {project.description}
             </p>
 
-            <div className="relative mb-10 h-[360px] w-full overflow-hidden rounded-[2px] bg-[#E3E3E3]">
+            <div
+              className={`group relative mb-12 h-[300px] w-full overflow-hidden bg-[#E3E3E3] sm:h-[360px] ${
+                project.live_project_url ? "cursor-pointer" : ""
+              } transition-all duration-700 delay-100 ease-out ${isPageMounted ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"}`}
+            >
               {project.thumbnail_url ? (
-                <img src={project.thumbnail_url} alt={project.title || "Project image"} className="h-full w-full object-contain object-center" />
+                <img
+                  src={project.thumbnail_url}
+                  alt={project.title || "Project image"}
+                  className="h-full w-full object-contain object-center transition-transform duration-300 ease-out group-hover:scale-[1.02]"
+                />
+              ) : null}
+              {project.live_project_url ? (
+                <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/10" />
               ) : null}
               {project.live_project_url ? (
                 <a
@@ -336,25 +555,28 @@ export default function ProjectDetailsPage({
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Open live project website"
-                  className="absolute left-1/2 top-1/2 inline-flex h-[44px] w-[44px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[14px] bg-primary text-[22px] font-semibold leading-none text-white shadow-[0_10px_20px_rgba(128,94,255,0.35)] transition-all duration-200 hover:scale-105 hover:opacity-95 active:scale-95"
+                  className="absolute inset-0 z-[2]"
                 >
-                  ↗
+                  <span className="absolute bottom-4 right-4 inline-flex h-[52px] w-[52px] items-center justify-center rounded-full bg-primary text-[24px] font-semibold leading-none text-white shadow-[0px_4px_20px_0px_rgba(163,134,255,0.5)] transition-all duration-200 group-hover:-translate-y-1 group-hover:scale-110 active:scale-95">
+                    ↗
+                  </span>
                 </a>
               ) : null}
             </div>
 
             {hasOverview ? (
-              <section id="overview" className="mb-12 scroll-mt-28">
-                <h2 className="mb-4 text-[24px] font-bold uppercase tracking-[0.22em] text-primary">Overview</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+              <section id="overview" data-details-reveal className="mb-12 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
+                <h2 className="mb-5 text-[24px] font-bold uppercase tracking-[0.34em] text-primary">Overview</h2>
+                <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-[minmax(0,1fr)_260px]">
                   <div>
                     {project.overview ? (
-                      <h3 className="text-[38px] font-medium leading-[1.05] text-black">{project.overview}</h3>
+                      <h3 className="max-w-[620px] text-[32px] font-medium leading-[1] text-black">{project.overview}</h3>
                     ) : null}
                     {project.goal ? (
-                      <p className="mt-5 text-[20px] font-medium leading-[1.25] text-secondary">{project.goal}</p>
+                      <p className="mt-4 max-w-[620px] text-[20px] font-medium leading-[1.2] text-secondary">{project.goal}</p>
                     ) : null}
                   </div>
+
                   {project.my_role || ownerName ? (
                     <article className="rounded-[14px] bg-white p-4">
                       {ownerName ? (
@@ -362,11 +584,11 @@ export default function ProjectDetailsPage({
                           <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-[14px] font-bold text-white">
                             {ownerName.charAt(0).toUpperCase()}
                           </span>
-                          <p className="text-[13px] font-bold text-secondary">{ownerName}</p>
+                          <p className="text-[11px] font-bold text-secondary">{ownerName}</p>
                         </div>
                       ) : null}
                       {project.my_role ? (
-                        <p className="text-[22px] font-bold leading-[1.15] text-secondary">{project.my_role}</p>
+                        <p className="text-[32px] font-bold leading-[1.05] text-secondary">{project.my_role}</p>
                       ) : null}
                     </article>
                   ) : null}
@@ -375,8 +597,8 @@ export default function ProjectDetailsPage({
             ) : null}
 
             {hasTools ? (
-              <section id="tools" className="mb-12 scroll-mt-28">
-                <h2 className="mb-4 text-[24px] font-bold uppercase tracking-[0.22em] text-primary">Engineering Stack</h2>
+              <section id="tools" data-details-reveal className="mb-12 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
+                <h2 className="mb-5 text-[24px] font-bold uppercase tracking-[0.34em] text-primary">Engineering Stack</h2>
                 <div className="flex flex-wrap gap-3">
                   {techStack.map((tech, index) => (
                     <SkillTag
@@ -393,14 +615,20 @@ export default function ProjectDetailsPage({
             ) : null}
 
             {hasFeatures ? (
-              <section id="features" className="mb-12 scroll-mt-28">
-                <h2 className="mb-4 text-[24px] font-bold uppercase tracking-[0.22em] text-primary">Key Features</h2>
+              <section id="features" data-details-reveal className="mb-12 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
+                <h2 className="mb-5 text-[24px] font-bold uppercase tracking-[0.34em] text-primary">Key Features</h2>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                   {featureItems.map((feature, index) => (
-                    <article key={`${feature}-${index}`} className="rounded-[20px] bg-white p-5 shadow-[0px_2px_2px_0px_rgba(0,0,0,0.25)]">
-                      <span className="mb-3 inline-flex h-[32px] w-[32px] items-center justify-center rounded-[8px] bg-primary/20 text-primary">◔</span>
-                      <h3 className="mb-2 text-[18px] font-bold text-black">Feature</h3>
-                      <p className="line-clamp-6 text-[12px] leading-relaxed text-secondary">{feature}</p>
+                    <article
+                      key={`${feature.title}-${feature.description}-${index}`}
+                      style={{ transitionDelay: `${Math.min(index, 7) * 60}ms` }}
+                      className="group rounded-[22px] bg-white p-5 shadow-[0px_2px_2px_0px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)]"
+                    >
+                      <span className="mb-3 inline-flex h-[42px] w-[42px] items-center justify-center rounded-[8px] bg-primary/20 text-primary transition-transform duration-300 group-hover:rotate-6">◔</span>
+                      <h3 className="mb-2 break-words text-[18px] font-bold text-black">{feature.title}</h3>
+                      {feature.description ? (
+                        <p className="line-clamp-6 break-words text-[12px] leading-[1.15] text-secondary">{feature.description}</p>
+                      ) : null}
                     </article>
                   ))}
                 </div>
@@ -408,24 +636,54 @@ export default function ProjectDetailsPage({
             ) : null}
 
             {hasDesign ? (
-              <section id="design" className="mb-12 scroll-mt-28">
-                <h2 className="mb-4 text-[24px] font-bold uppercase tracking-[0.22em] text-primary">UI/UX Design</h2>
-                <div className="grid grid-cols-1 gap-6">
-                  {project.hook ? (
-                    <h3 className="text-[42px] font-bold leading-[1.03] text-black">{project.hook}</h3>
-                  ) : null}
-                  {project.design_philosophy ? (
-                    <p className="text-[18px] font-medium leading-[1.25] text-secondary">{project.design_philosophy}</p>
-                  ) : null}
+              <section id="design" data-details-reveal className="mb-12 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
+                <h2 className="mb-5 text-[24px] font-bold uppercase tracking-[0.34em] text-primary">UI/UX Design</h2>
+                <div className="flex flex-col gap-8 md:flex-row md:gap-10 items-start">
+                  <div className="flex-1 min-w-0">
+                    {project.hook ? (
+                      <h3 className="max-w-[420px] text-[36px] font-bold leading-[1.02] text-black mb-4">{project.hook}</h3>
+                    ) : null}
+                    {project.design_philosophy ? (
+                      <p className="max-w-[380px] text-[22px] font-medium leading-[1.3] text-secondary mb-6">{project.design_philosophy}</p>
+                    ) : null}
+
+                    {project.figma_documentation_url ? (
+                      <a
+                        href={project.figma_documentation_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-2 text-[18px] font-semibold text-primary hover:underline hover:text-primary/80 transition-colors"
+                      >
+                        <span className="underline">Explore Figma Documentation</span> <span className="text-[16px]">↗</span>
+                      </a>
+                    ) : null}
+                  </div>
+
+                  <div className="flex-1 flex flex-col items-center">
+                    <div className="relative mb-2 h-[300px] w-full max-w-[540px] overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-lg transition-transform duration-300 hover:scale-[1.015] group">
+                      {project.figma_image_url ? (
+                        <img
+                          src={project.figma_image_url}
+                          alt={project.title || "Project design preview"}
+                          className="h-full w-full object-contain object-center transition-transform duration-300 ease-out group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-gray-400">No Figma preview</div>
+                      )}
+                    </div>
+                    {project.figma_documentation_url ? (
+                      <div className="mt-1 text-[14px] text-gray-500 text-center w-full max-w-[540px]">Figma preview from documentation</div>
+                    ) : null}
+                  </div>
                 </div>
               </section>
             ) : null}
 
             {hasResult ? (
-              <section id="result" className="scroll-mt-28">
-                <h2 className="mb-4 text-[24px] font-bold uppercase tracking-[0.22em] text-primary">Final Result</h2>
-                <h3 className="mb-2 text-[48px] font-bold leading-none text-black">Impact</h3>
-                <p className="text-[38px] font-medium leading-[1.05] text-secondary">{project.impact_reflection}</p>
+              <section id="result" data-details-reveal className="scroll-mt-28 pb-6 translate-y-5 opacity-0 transition-all duration-700 ease-out">
+                <h2 className="mb-5 text-[24px] font-bold uppercase tracking-[0.34em] text-primary">Final Result</h2>
+                <h3 className="mb-3 text-[48px] font-bold leading-none text-black">Reflection</h3>
+                <p className="max-w-[900px] text-[38px] font-medium leading-[1.05] text-secondary">{project.impact_reflection}</p>
               </section>
             ) : null}
           </article>
