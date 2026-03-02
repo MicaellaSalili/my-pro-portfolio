@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import RevealOnScroll from "./RevealOnScroll";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
@@ -453,7 +452,6 @@ export default function ProjectDetailsPage({
   return (
     <section ref={pageRef} className="w-full bg-transparent px-4 py-4 md:px-5 md:py-6 lg:px-6">
       <div className="mx-auto w-full max-w-[1440px]">
-        <RevealOnScroll threshold={0.2}>
           <div className="mx-auto flex w-full max-w-[1200px] items-start gap-6 lg:gap-8">
           <aside data-details-reveal className="hidden w-[242px] shrink-0 translate-y-5 opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block">
             <button
@@ -691,7 +689,6 @@ export default function ProjectDetailsPage({
             ) : null}
           </article>
         </div>
-      </RevealOnScroll>
       </div>
 
       {isMobileSidebarOpen ? (
