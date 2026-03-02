@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import SkillTag from "./SkillTag";
 import {
@@ -239,9 +240,9 @@ function ProjectCard({
           onClick={() => {
             onOpenProjectDetails(project.id);
           }}
-          className="absolute bottom-3 right-3 inline-flex h-[40px] w-[40px] items-center justify-center rounded-[12px] bg-primary text-[20px] font-semibold leading-none text-white transition-all duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 hover:opacity-90 active:translate-y-0 active:scale-95 sm:h-[44px] sm:w-[44px] sm:rounded-[14px]"
+          className="absolute bottom-3 right-3 inline-flex h-[40px] w-[40px] items-center justify-center rounded-[12px] bg-primary text-white transition-all duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 hover:opacity-90 active:translate-y-0 active:scale-95 sm:h-[44px] sm:w-[44px] sm:rounded-[14px]"
         >
-          ↗
+          <ArrowUpRight size={20} />
         </button>
       </div>
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import RevealOnScroll from "./RevealOnScroll";
+import { ArrowUpRight, MessageCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 type ContactProfileData = {
@@ -254,6 +256,7 @@ export default function ContactPage() {
   return (
     <section className="w-full bg-transparent px-5 py-4 lg:px-6">
       <div className="mx-auto w-full max-w-[1440px]">
+        <RevealOnScroll threshold={0.2}>
         <div className="mx-auto max-w-[1200px]">
           <div className="mt-4 grid grid-cols-1 gap-10 lg:grid-cols-[420px_minmax(0,1fr)] lg:items-start">
             <aside
@@ -307,12 +310,12 @@ export default function ContactPage() {
                         className="text-[24px] font-medium text-secondary transition-all duration-200 group-hover:-translate-y-0.5 group-hover:text-primary active:translate-y-0"
                         aria-label={`Open ${item.label}`}
                       >
-                        ↗
+                        <ArrowUpRight size={22} />
                       </a>
                         );
                       })()
                     ) : (
-                      <span className="text-[22px] text-secondary/50">↗</span>
+                      <span className="text-secondary/50"><ArrowUpRight size={22} /></span>
                     )}
                   </article>
                 ))}
@@ -334,7 +337,7 @@ export default function ContactPage() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="inline-flex size-[42px] items-center justify-center rounded-[20px] bg-primary text-[18px] text-white">◔</span>
+                  <span className="inline-flex size-[42px] items-center justify-center rounded-[20px] bg-primary text-white"><MessageCircle size={20} /></span>
                   <h3 className="text-[20px] font-bold uppercase tracking-[0.2em] text-black">Send A Message</h3>
                 </div>
               </div>
@@ -404,6 +407,7 @@ export default function ContactPage() {
             </article>
           </div>
         </div>
+        </RevealOnScroll>
       </div>
     </section>
   );

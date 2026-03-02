@@ -7,6 +7,7 @@ import Footer from "./Footer";
 import { supabase } from "../lib/supabase";
 import { queueAboutSection } from "../lib/aboutSectionNav";
 import { queueWorksCategory } from "../lib/worksCategoryNav";
+import { ArrowUp } from "lucide-react";
 
 interface RootLayoutClientProps {
   children: React.ReactNode;
@@ -180,7 +181,7 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
             showScrollTop ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
           }`}
         >
-          ↑
+          <ArrowUp size={20} />
         </button>
       </div>
     </PageContext.Provider>

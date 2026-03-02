@@ -6,6 +6,8 @@ import { PageContext } from "./RootLayoutClient";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
 import { ABOUT_SECTION_EVENT, ABOUT_SECTION_STORAGE_KEY } from "../lib/aboutSectionNav";
 import SkillTag from "./SkillTag";
+import RevealOnScroll from "./RevealOnScroll";
+import { Download, ArrowUpRight } from "lucide-react";
 
 const sidebarItems = [
   { id: "profile", label: "Profile" },
@@ -521,7 +523,8 @@ export default function AboutPage() {
 
   return (
     <section ref={pageRef} className="w-full bg-transparent px-5 py-6 lg:px-6">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-6 lg:flex-row lg:gap-10">
+      <RevealOnScroll threshold={0.2}>
+        <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-6 lg:flex-row lg:gap-10">
         <aside data-about-reveal className="hidden w-full max-w-[270px] shrink-0 self-start translate-y-5 opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block">
           <h2 className="mb-6 text-[22px] font-bold leading-none text-black">About</h2>
           <ul className="space-y-3">
@@ -579,7 +582,7 @@ export default function AboutPage() {
                   rel="noopener noreferrer"
                   className="inline-flex h-[48px] items-center gap-2 rounded-[24px] bg-black px-5 text-[14px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95 active:translate-y-[1px] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
                 >
-                  ⬇ Download Resume
+                  <Download size={16} /> Download Resume
                 </a>
                 <button
                   type="button"
@@ -658,10 +661,10 @@ export default function AboutPage() {
                           rel="noopener noreferrer"
                           className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-400 text-white transition-all duration-200 hover:bg-violet-500 active:scale-[0.96]"
                         >
-                          ↗
+                          <ArrowUpRight size={16} />
                         </a>
                       ) : (
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-400 text-white">↗</span>
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-400 text-white"><ArrowUpRight size={16} /></span>
                       )}
                     </div>
                   ))}
@@ -771,9 +774,9 @@ export default function AboutPage() {
                       onClick={() => {
                         pageContext?.setCurrentPage("works");
                       }}
-                      className="mt-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary transition-all duration-200 hover:translate-x-0.5 hover:text-primary/80 active:translate-x-[1px] active:scale-[0.97]"
+                      className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary transition-all duration-200 hover:translate-x-0.5 hover:text-primary/80 active:translate-x-[1px] active:scale-[0.97]"
                     >
-                      View Related Works ↗
+                      View Related Works <ArrowUpRight size={12} />
                     </button>
                   </article>
                 ))}
@@ -781,7 +784,8 @@ export default function AboutPage() {
             )}
           </section>
         </div>
-      </div>
+        </div>
+      </RevealOnScroll>
 
       {isMobileSidebarOpen ? (
         <div className="fixed inset-0 z-[80] bg-black/35 lg:hidden">

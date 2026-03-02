@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import SkillTag from "./SkillTag";
+import RevealOnScroll from "./RevealOnScroll";
+import { ArrowUpRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
 
@@ -71,54 +73,7 @@ type HomePageCacheData = {
   profile: FooterProfileData | null;
 };
 
-function RevealOnScroll({
-  children,
-  delayMs = 0,
-}: {
-  children: React.ReactNode;
-  delayMs?: number;
-}) {
-  const sectionRef = useRef<HTMLDivElement | null>(null);
-  const [isInView, setIsInView] = useState(false);
-
-  useEffect(() => {
-    const currentElement = sectionRef.current;
-    if (!currentElement) {
-      return;
-    }
-
-    // Trigger reveal much earlier (almost as soon as section is near viewport)
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        setIsInView(entry.isIntersecting);
-      },
-      {
-        threshold: 0.05, // Lower threshold for earlier trigger
-        rootMargin: "0px 0px -40% 0px", // Reveal when 40% of section is still below viewport
-      }
-    );
-
-    observer.observe(currentElement);
-
-    return () => {
-      observer.unobserve(currentElement);
-      observer.disconnect();
-    };
-  }, []);
-
-  return (
-    <div
-      ref={sectionRef}
-      className={`transition-all duration-700 ease-out motion-reduce:transition-none ${
-        isInView ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
-      }`}
-      style={{ transitionDelay: `${delayMs}ms` }}
-    >
-      {children}
-    </div>
-  );
-}
+// Removed RevealOnScroll: all sections now render statically
 
 let cachedHomeProfile: FooterProfileData | null = null;
 let homePageMemoryCache: HomePageCacheData | null = null;
@@ -250,7 +205,7 @@ function HomeHeroSection({
   ];
 
   return (
-    <section className="w-full px-6 py-12 md:px-10 lg:px-[70px]">
+    <section className="w-full px-6 pt-12 pb-24 md:px-10 lg:px-[70px] lg:pb-32">
       <div className={`mx-auto flex max-w-[1320px] flex-col-reverse items-center gap-10 transition-all duration-[900ms] ease-out lg:flex-row lg:items-center lg:justify-between lg:gap-[72px] motion-reduce:transition-none ${
         isVisible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
       }`.replace("lg:justify-between", "lg:justify-center") }>
@@ -446,9 +401,9 @@ function ProjectCard({
           event.stopPropagation();
           onOpenProjectDetails(project.id);
         }}
-        className="absolute bottom-8 right-8 inline-flex h-[48px] w-[48px] items-center justify-center rounded-[16px] bg-primary text-[24px] font-semibold leading-none text-white transition-colors hover:opacity-90"
+        className="absolute bottom-8 right-8 inline-flex h-[48px] w-[48px] items-center justify-center rounded-[16px] bg-primary text-white transition-colors hover:opacity-90"
       >
-        ↗
+        <ArrowUpRight size={22} />
       </button>
     </article>
   );
@@ -548,8 +503,8 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
     <div className="w-full">
       <HomeHeroSection setCurrentPage={setCurrentPage} profile={profile} />
 
-      <RevealOnScroll delayMs={40}>
-        <section className="px-6 pb-12 md:px-10 lg:px-[70px]">
+      <RevealOnScroll threshold={0.2}>
+        <section className="w-full px-6 pt-8 pb-12 md:px-10 lg:px-[70px]">
           <div className="mx-auto max-w-[1300px] rounded-[20px] py-[25px]">
           <h2 className="mb-6 text-center text-[36px] font-bold text-secondary">Specialization</h2>
           <div className="grid grid-cols-1 gap-[30px] lg:grid-cols-3">
@@ -592,8 +547,8 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
         </section>
       </RevealOnScroll>
 
-      <RevealOnScroll delayMs={60}>
-        <section className="px-6 pb-12 md:px-10 lg:px-[70px]">
+      <RevealOnScroll threshold={0.05}>
+        <section className="w-full px-6 py-12 md:px-10 lg:px-[70px]">
           <div className="mx-auto max-w-[1300px]">
           <h2 className="mb-3 text-center text-[36px] font-bold text-secondary">Projects</h2>
           <div className="mb-5 flex items-center">
@@ -619,8 +574,8 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
         </section>
       </RevealOnScroll>
 
-      <RevealOnScroll delayMs={80}>
-        <section className="px-6 pb-12 md:px-10 lg:px-[70px]">
+      <RevealOnScroll threshold={0.2}>
+        <section className="w-full px-6 py-12 md:px-10 lg:px-[70px]">
           <div className="mx-auto max-w-[1300px]">
           <h2 className="mb-6 text-center text-[36px] font-bold text-secondary">Milestones</h2>
           <div className="flex flex-wrap items-center justify-center gap-[30px]">

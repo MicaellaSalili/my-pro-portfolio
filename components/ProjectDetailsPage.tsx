@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import RevealOnScroll from "./RevealOnScroll";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
 import SkillTag from "./SkillTag";
@@ -451,14 +453,15 @@ export default function ProjectDetailsPage({
   return (
     <section ref={pageRef} className="w-full bg-transparent px-4 py-4 md:px-5 md:py-6 lg:px-6">
       <div className="mx-auto w-full max-w-[1440px]">
-        <div className="mx-auto flex w-full max-w-[1200px] items-start gap-6 lg:gap-8">
+        <RevealOnScroll threshold={0.2}>
+          <div className="mx-auto flex w-full max-w-[1200px] items-start gap-6 lg:gap-8">
           <aside data-details-reveal className="hidden w-[242px] shrink-0 translate-y-5 opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block">
             <button
               type="button"
               onClick={onBack}
-              className="mb-4 text-left text-[20px] font-bold leading-none text-primary transition-opacity hover:opacity-80"
+              className="mb-4 inline-flex items-center gap-1.5 text-left text-[20px] font-bold leading-none text-primary transition-opacity hover:opacity-80"
             >
-              ← Back to Works
+              <ArrowLeft size={20} /> Back to Works
             </button>
             <div className="space-y-1.5">
               {sidebarItems.map((item) => (
@@ -484,9 +487,9 @@ export default function ProjectDetailsPage({
             <button
               type="button"
               onClick={onBack}
-              className="mb-4 text-left text-[18px] font-bold text-primary transition-opacity hover:opacity-80 lg:hidden"
+              className="mb-4 inline-flex items-center gap-1.5 text-left text-[18px] font-bold text-primary transition-opacity hover:opacity-80 lg:hidden"
             >
-              ← Back to Works
+              <ArrowLeft size={18} /> Back to Works
             </button>
 
             <div className="mb-4 flex items-center justify-start lg:hidden">
@@ -557,8 +560,8 @@ export default function ProjectDetailsPage({
                   aria-label="Open live project website"
                   className="absolute inset-0 z-[2]"
                 >
-                  <span className="absolute bottom-4 right-4 inline-flex h-[52px] w-[52px] items-center justify-center rounded-full bg-primary text-[24px] font-semibold leading-none text-white shadow-[0px_4px_20px_0px_rgba(163,134,255,0.5)] transition-all duration-200 group-hover:-translate-y-1 group-hover:scale-110 active:scale-95">
-                    ↗
+                  <span className="absolute bottom-4 right-4 inline-flex h-[52px] w-[52px] items-center justify-center rounded-full bg-primary text-white shadow-[0px_4px_20px_0px_rgba(163,134,255,0.5)] transition-all duration-200 group-hover:-translate-y-1 group-hover:scale-110 active:scale-95">
+                    <ArrowUpRight size={24} />
                   </span>
                 </a>
               ) : null}
@@ -654,7 +657,7 @@ export default function ProjectDetailsPage({
                         rel="noopener noreferrer"
                         className="mt-2 inline-flex items-center gap-2 text-[18px] font-semibold text-primary hover:underline hover:text-primary/80 transition-colors"
                       >
-                        <span className="underline">Explore Figma Documentation</span> <span className="text-[16px]">↗</span>
+                        <span className="underline">Explore Figma Documentation</span> <ArrowUpRight size={16} />
                       </a>
                     ) : null}
                   </div>
@@ -688,6 +691,7 @@ export default function ProjectDetailsPage({
             ) : null}
           </article>
         </div>
+      </RevealOnScroll>
       </div>
 
       {isMobileSidebarOpen ? (
