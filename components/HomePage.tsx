@@ -209,11 +209,30 @@ function HomeHeroSection({
           isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
         }`}
       >
+        {/* FIX 2: Profile image card with properly sized decorative dots */}
         <div className="relative flex aspect-square w-full max-w-[280px] shrink-0 flex-col overflow-hidden rounded-[38px] border-2 border-violet-400 bg-white shadow-[8px_8px_0px_0px_var(--color-primary),0_18px_45px_rgba(128,94,255,0.14)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_var(--color-primary),0_24px_60px_rgba(128,94,255,0.2)] sm:max-w-[340px] sm:rounded-[48px] md:max-w-[390px] lg:max-w-[430px]">
-          <div className="flex h-[54px] w-full shrink-0 items-center gap-3 rounded-t-[36px] bg-white px-7 sm:h-[64px] sm:rounded-t-[46px] sm:px-9">
-            <span className="h-0.5 w-0.5 rounded-full bg-[#ef655d] sm:h-4 sm:w-4" />
-            <span className="h-0.5 w-0.5 rounded-full bg-[#e7bf45] sm:h-4 sm:w-4" />
-            <span className="h-0.5 w-0.5 rounded-full bg-[#62bd58] sm:h-4 sm:w-4" />
+          {/*
+            FIX 2 APPLIED HERE:
+            - Dots changed from h-0.5 w-0.5 (2px) on mobile to h-3 w-3 (12px) — actually visible
+            - Added flex-shrink-0 so flex container never compresses them
+            - Added block so the <span> respects explicit width/height
+            - Added aspect-ratio via inline style to lock the circle shape
+            - Tightened gap to gap-2 on mobile, gap-3 on sm+
+            - Reduced px from px-7 to px-5 on mobile for better breathing room
+          */}
+          <div className="flex h-[54px] w-full shrink-0 items-center gap-2 rounded-t-[36px] bg-white px-5 sm:h-[64px] sm:gap-3 sm:rounded-t-[46px] sm:px-9">
+            <span
+              className="block h-3 w-3 flex-shrink-0 rounded-full bg-[#ef655d] sm:h-4 sm:w-4"
+              style={{ aspectRatio: "1 / 1" }}
+            />
+            <span
+              className="block h-3 w-3 flex-shrink-0 rounded-full bg-[#e7bf45] sm:h-4 sm:w-4"
+              style={{ aspectRatio: "1 / 1" }}
+            />
+            <span
+              className="block h-3 w-3 flex-shrink-0 rounded-full bg-[#62bd58] sm:h-4 sm:w-4"
+              style={{ aspectRatio: "1 / 1" }}
+            />
           </div>
           {profile.profile_image_url ? (
             <img
@@ -240,7 +259,18 @@ function HomeHeroSection({
             {profile.hero_sub_headline}
           </p>
 
-          <div className="flex w-full flex-wrap items-center justify-center gap-3 bg-transparent p-0 md:justify-start">
+          {/*
+            FIX 1 APPLIED HERE:
+            - gap changed from gap-3 (12px fixed) to a fluid clamp via inline style
+            - Each <a> gets flex-shrink-0 so it never compresses below its clamp size
+            - Icon tap target uses clamp(32px, 9vw, 44px): at 320px = ~29px, at 375px = ~34px, at 768px+ = 44px
+            - Inner <img> also uses clamp for proportional fluid scaling
+            - This keeps all 7 icons on a single row down to 320px viewport width
+          */}
+          <div
+            className="flex w-full flex-wrap items-center justify-center bg-transparent p-0 md:justify-start"
+            style={{ gap: "clamp(4px, 2vw, 12px)" }}
+          >
             {socialLinks.map((item) => (
               <a
                 key={item.label}
@@ -253,11 +283,31 @@ function HomeHeroSection({
                     event.preventDefault();
                   }
                 }}
-                className="relative flex h-[44px] w-[44px] items-center justify-center rounded-full transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-110 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-primary/40 active:scale-95"
+                className="relative flex flex-shrink-0 items-center justify-center rounded-full transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-110 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-primary/40 active:scale-95"
+                style={{
+                  width: "clamp(32px, 9vw, 44px)",
+                  height: "clamp(32px, 9vw, 44px)",
+                }}
               >
-                <img src={item.src} alt="" className="h-[30px] w-[30px] object-contain" />
+                <img
+                  src={item.src}
+                  alt=""
+                  className="object-contain"
+                  style={{
+                    width: "clamp(22px, 6vw, 30px)",
+                    height: "clamp(22px, 6vw, 30px)",
+                  }}
+                />
                 {item.type === "email" && item.srcOverlay ? (
-                  <img src={item.srcOverlay} alt="" className="pointer-events-none absolute h-[27px] w-[27px] object-contain" />
+                  <img
+                    src={item.srcOverlay}
+                    alt=""
+                    className="pointer-events-none absolute object-contain"
+                    style={{
+                      width: "clamp(20px, 5.5vw, 27px)",
+                      height: "clamp(20px, 5.5vw, 27px)",
+                    }}
+                  />
                 ) : null}
               </a>
             ))}
