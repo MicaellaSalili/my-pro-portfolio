@@ -50,10 +50,10 @@ const defaultCategories = [
   "All",
   "Web",
   "Mobile",
-  "Software",
-  "System",
-  "Data",
-  "AI/ML",
+  "Systems & Desktop",
+  "Cloud & DevOps",
+  "AI & ML",
+  "Data & Analytics",
   "Cybersecurity",
 ];
 
@@ -193,9 +193,11 @@ function ProjectCard({
   return (
     <article
       onClick={() => onOpenProjectDetails(project.id)}
-      className="group relative w-full max-w-[461px] cursor-pointer rounded-[34px] border border-[rgba(163,134,255,0.28)] bg-white p-5 pb-20 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99] sm:p-6 sm:pb-24 md:p-8"
+      className="group relative flex w-full cursor-pointer flex-col rounded-[34px] border border-[rgba(163,134,255,0.28)] bg-white p-5 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99] sm:p-6 md:p-8"
+      style={{ height: "480px" }}
     >
-      <div className="mb-6 flex flex-wrap items-center gap-2">
+      {/* Tags row — fixed height area */}
+      <div className="mb-4 flex h-[36px] shrink-0 flex-wrap items-center gap-2 overflow-hidden">
         {visibleTechStack.map((tech, idx) => (
           <SkillTag
             onClick={(event) => {
@@ -221,7 +223,8 @@ function ProjectCard({
         ) : null}
       </div>
 
-      <div className="relative mb-8 h-[180px] w-full overflow-hidden rounded-[18px] bg-white sm:h-[194px]">
+      {/* Thumbnail — fixed height */}
+      <div className="relative mb-6 h-[200px] w-full shrink-0 overflow-hidden rounded-[18px] bg-[#F0EFF5]">
         {project.thumbnailUrl ? (
           <img
             src={project.thumbnailUrl}
@@ -237,22 +240,22 @@ function ProjectCard({
         <button
           type="button"
           aria-label={`Open project details for ${project.title}`}
-          onClick={() => {
-            onOpenProjectDetails(project.id);
-          }}
+          onClick={() => onOpenProjectDetails(project.id)}
           className="absolute bottom-3 right-3 inline-flex h-[40px] w-[40px] items-center justify-center rounded-[12px] bg-primary text-white transition-all duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 hover:opacity-90 active:translate-y-0 active:scale-95 sm:h-[44px] sm:w-[44px] sm:rounded-[14px]"
         >
           <ArrowUpRight size={20} />
         </button>
       </div>
 
-      <div>
-        <h3 className="text-left text-[30px] font-extrabold leading-[1.06] text-black sm:text-[36px] md:text-[42px]">{project.title}</h3>
-        <p className="mt-3 line-clamp-3 text-left text-[14px] font-medium leading-relaxed text-secondary sm:text-[16px]">
+      {/* Text — fills remaining space, content clipped */}
+      <div className="flex min-h-0 flex-1 flex-col justify-end">
+        <h3 className="line-clamp-2 text-left text-[30px] font-extrabold leading-[1.06] text-black sm:text-[34px] md:text-[38px]">
+          {project.title}
+        </h3>
+        <p className="mt-3 line-clamp-3 text-left text-[14px] font-medium leading-relaxed text-secondary sm:text-[15px]">
           {project.description}
         </p>
       </div>
-
     </article>
   );
 }
@@ -267,6 +270,7 @@ export default function WorksPage({
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [selectedProjectType, setSelectedProjectType] = useState<string>("All");
   const [selectedTechStacks, setSelectedTechStacks] = useState<string[]>([]);
+  const [techSearchQuery, setTechSearchQuery] = useState<string>("");
   const [hasFetchedProjects, setHasFetchedProjects] = useState(Boolean(worksProjectsCache));
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
@@ -375,8 +379,6 @@ export default function WorksPage({
     };
   }, []);
 
-  // Reveal animation removed: cards are now visible immediately
-
   const categories = useMemo(() => {
     const categorySet = new Set(defaultCategories);
 
@@ -448,41 +450,101 @@ export default function WorksPage({
   }, [projects, selectedCategory, selectedProjectType, selectedTechStacks]);
 
   function renderTechStackFilter(filterId: string, containerClassName = "") {
+    const filteredTechOptions = techStackOptions.filter((skill) =>
+      skill.toLowerCase().includes(techSearchQuery.toLowerCase())
+    );
+
     return (
-      <div id={filterId} className={`rounded-[16px] p-4 ${containerClassName}`}>
-        <h3 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-secondary">Tech Stack</h3>
-        <div className="mt-3 space-y-2">
-          {techStackOptions.length === 0 ? (
-            <p className="text-[12px] text-secondary">No tech tags yet.</p>
+      <div id={filterId} className={`flex flex-col rounded-[24px] border border-[rgba(163,134,255,0.18)] bg-white p-5 shadow-[4px_4px_0px_0px_rgba(128,94,255,0.1)] ${containerClassName}`}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.08em] text-black">Tech Stack</h3>
+          {selectedTechStacks.length > 0 && (
+            <span className="inline-flex h-5 items-center justify-center rounded-full bg-primary/10 px-2 text-[11px] font-bold text-primary">
+              {selectedTechStacks.length} active
+            </span>
+          )}
+        </div>
+
+        <div className="relative mt-3">
+          <input
+            type="text"
+            placeholder="Search tech..."
+            value={techSearchQuery}
+            onChange={(e) => setTechSearchQuery(e.target.value)}
+            className="w-full rounded-[12px] border border-[#DCE0E8] bg-[#F9FAFB] px-3 py-2 text-[13px] font-medium text-black placeholder-[#9AA4B2] transition-all focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          {techSearchQuery && (
+            <button
+              type="button"
+              onClick={() => setTechSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-[#9AA4B2] hover:text-black"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <div className="mt-4 max-h-[280px] overflow-y-auto space-y-1.5 pr-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/20">
+          {filteredTechOptions.length === 0 ? (
+            <p className="py-4 text-center text-[12px] font-medium text-secondary">
+              No matching tags found.
+            </p>
           ) : (
-            techStackOptions.map((skill) => {
+            filteredTechOptions.map((skill) => {
               const isChecked = selectedTechStacks.includes(skill);
 
               return (
-                <label key={`${filterId}-${skill}`} className="flex cursor-pointer items-center gap-2 text-[13px] font-medium text-secondary transition-colors duration-200 hover:text-primary">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleTechStack(skill)}
-                    className="h-3.5 w-3.5 rounded-[3px] border border-primary text-primary accent-primary"
-                  />
-                  <span>{skill}</span>
+                <label
+                  key={`${filterId}-${skill}`}
+                  className={`flex cursor-pointer items-center justify-between rounded-[10px] px-2.5 py-2 transition-all duration-150 ${
+                    isChecked
+                      ? "bg-primary/5 text-primary font-semibold"
+                      : "text-secondary hover:bg-[#F4F5F7] hover:text-black"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 text-[13px]">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleTechStack(skill)}
+                      className="h-4 w-4 rounded-[4px] border-[#DCE0E8] text-primary accent-primary transition-all focus:ring-0 focus:ring-offset-0"
+                    />
+                    <span>{skill}</span>
+                  </div>
                 </label>
               );
             })
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedCategory("All");
-            setSelectedTechStacks([]);
-          }}
-          className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-primary transition-all duration-200 hover:translate-x-0.5 hover:text-primary/80 active:translate-x-0 active:scale-95 disabled:opacity-40"
-          disabled={selectedCategory === "All" && selectedTechStacks.length === 0}
-        >
-          Clear filters
-        </button>
+
+        <div className="mt-4 flex items-center justify-between border-t border-[#F4F5F7] pt-3">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedTechStacks([]);
+              setTechSearchQuery("");
+            }}
+            className="text-[11px] font-bold uppercase tracking-[0.06em] text-primary transition-all hover:text-primary/80 disabled:opacity-30"
+            disabled={selectedTechStacks.length === 0}
+          >
+            Reset Section
+          </button>
+          
+          {selectedCategory !== "All" || selectedTechStacks.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory("All");
+                setSelectedProjectType("All");
+                setSelectedTechStacks([]);
+                setTechSearchQuery("");
+              }}
+              className="text-[11px] font-semibold text-secondary hover:text-black"
+            >
+              Clear All Filters
+            </button>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -490,7 +552,9 @@ export default function WorksPage({
   return (
     <section ref={pageRef} className="w-full bg-transparent px-5 py-6 lg:px-6">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-6 lg:flex-row lg:gap-8">
-        <aside className="hidden w-full max-w-[270px] shrink-0 self-start lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+        
+        {/* Category Left Sticky Selection Column */}
+        <aside className="hidden w-full max-w-[270px] shrink-0 self-start lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="mb-6">
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               {projectTypeOptions.map((type) => (
@@ -509,15 +573,15 @@ export default function WorksPage({
               ))}
             </div>
           </div>
-          <ul className="space-y-3">
+          <ul className="space-y-2.5">
             {categories.map((category) => (
-              <li key={category} className="h-[50px]">
+              <li key={category} className="h-[46px]">
                 <button
                   type="button"
                   onClick={() => setSelectedCategory(category)}
-                  className={`h-full w-full rounded-[999px] border px-4 text-left text-[20px] leading-none transition-all ${
+                  className={`h-full w-full rounded-[999px] border px-5 text-left text-[15px] leading-none transition-all ${
                     selectedCategory === category
-                      ? "border-primary bg-primary text-white font-bold shadow-[0_6px_18px_rgba(128,94,255,0.35)]"
+                      ? "border-primary bg-primary text-white font-bold shadow-[0_4px_12px_rgba(128,94,255,0.25)]"
                       : "border-[#DCE0E8] bg-transparent font-semibold text-secondary hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary active:translate-y-0 active:scale-[0.99]"
                   }`}
                 >
@@ -528,6 +592,7 @@ export default function WorksPage({
           </ul>
         </aside>
 
+        {/* Content Section / Grid */}
         <div className="w-full min-w-0 flex-1">
           <div className="mb-4 flex items-center justify-start lg:hidden">
             <button
@@ -546,10 +611,8 @@ export default function WorksPage({
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-10 xl:grid-cols-2">
-              {filteredProjects.map((project, index) => (
-                <div
-                  key={project.id}
-                >
+              {filteredProjects.map((project) => (
+                <div key={project.id}>
                   <ProjectCard
                     project={project}
                     onOpenProjectDetails={onOpenProjectDetails}
@@ -564,11 +627,13 @@ export default function WorksPage({
           )}
         </div>
 
+        {/* Tech Stack Right Sidebar */}
         <aside className="hidden w-full max-w-[220px] shrink-0 self-start lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
           {renderTechStackFilter("works-tech-stack-filter", "h-full")}
         </aside>
       </div>
 
+      {/* Mobile Drawer Filter Layer */}
       {isMobileFilterOpen ? (
         <div className="fixed inset-0 z-[80] bg-black/35 lg:hidden">
           <button

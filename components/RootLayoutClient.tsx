@@ -30,16 +30,12 @@ interface ProjectCategoryData {
 const projectCategoryOrder = [
   "Web",
   "Mobile",
-  "Software",
-  "System",
-  "Data",
-  "AI/ML",
+  "Systems & Desktop",
+  "Cloud & DevOps",
+  "AI & ML",
+  "Data & Analytics",
   "Cybersecurity",
 ];
-
-function toSlug(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
 
 export const PageContext = createContext<{
   currentPage: string;
@@ -129,16 +125,27 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
   const footerWorksLinks = useMemo(() => {
     const categoriesFromProjects = new Set(
       projectCategories
-        .map((project) => project.category?.trim())
+        .flatMap((project) => project.category?.split(",") || [])
+        .map((category) => category.trim())
         .filter((category): category is string => Boolean(category))
     );
 
-    return projectCategoryOrder
+    const orderedCategories = projectCategoryOrder
       .filter((category) => categoriesFromProjects.has(category))
       .map((category) => ({
         label: category,
         workCategory: category,
       }));
+
+    const extraCategories = Array.from(categoriesFromProjects)
+      .filter((category) => !projectCategoryOrder.includes(category))
+      .sort((a, b) => a.localeCompare(b))
+      .map((category) => ({
+        label: category,
+        workCategory: category,
+      }));
+
+    return [...orderedCategories, ...extraCategories];
   }, [projectCategories]);
 
   const footerAboutLinks = [
@@ -177,7 +184,7 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
           type="button"
           aria-label="Scroll to top"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className={`fixed bottom-8 right-6 z-50 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-2xl font-bold text-white shadow-[0_8px_18px_rgba(128,94,255,0.35)] transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(128,94,255,0.42)] active:translate-y-0 active:scale-95 ${
+          className={`fixed bottom-6 right-6 z-50 hidden h-12 w-12 items-center justify-center rounded-full bg-primary text-2xl font-bold text-white shadow-[0_8px_18px_rgba(128,94,255,0.35)] transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(128,94,255,0.42)] active:translate-y-0 active:scale-95 sm:inline-flex lg:bottom-8 lg:right-8 ${
             showScrollTop ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
           }`}
         >

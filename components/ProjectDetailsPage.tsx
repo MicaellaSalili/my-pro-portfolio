@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Github, ExternalLink, Play } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
 import SkillTag from "./SkillTag";
@@ -13,10 +13,8 @@ type ProjectDetailsData = {
   description: string | null;
   thumbnail_url: string | null;
   overview: string | null;
-  goal: string | null;
   my_role: string | null;
   features: unknown;
-  design_philosophy: string | null;
   impact_reflection: string | null;
   live_demo_url: string | null;
   live_project_url: string | null;
@@ -40,7 +38,7 @@ type FeatureItem = {
   description: string;
 };
 
-const projectDetailsSelect = "id, title, hook, description, thumbnail_url, overview, goal, my_role, features, design_philosophy, impact_reflection, live_demo_url, live_project_url, github_repo_url, figma_documentation_url, figma_image_url, project_skills(skill_id, tech_stack(skill_name))";
+const projectDetailsSelect = "id, title, hook, description, thumbnail_url, overview, my_role, features, impact_reflection, live_demo_url, live_project_url, github_repo_url, figma_documentation_url, figma_image_url, project_skills(skill_id, tech_stack(skill_name))";
 
 const projectDetailsCache = new Map<string, ProjectDetailsData>();
 const projectDetailsPending = new Map<string, Promise<ProjectDetailsData | null>>();
@@ -194,6 +192,7 @@ export default function ProjectDetailsPage({
   const [activeSidebarItem, setActiveSidebarItem] = useState("overview");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isPageMounted, setIsPageMounted] = useState(false);
+  const [activeFeature, setActiveFeature] = useState<FeatureItem | null>(null);
 
   useEffect(() => {
     setIsPageMounted(false);
@@ -304,10 +303,11 @@ export default function ProjectDetailsPage({
   }, [project]);
 
   const featureItems = useMemo(() => parseFeatureItems(project?.features), [project]);
-  const hasOverview = Boolean(project?.overview?.trim() || project?.goal?.trim() || project?.my_role?.trim() || ownerName);
+  const hasOverview = Boolean(project?.overview?.trim() || project?.my_role?.trim());
   const hasTools = techStack.length > 0;
   const hasFeatures = featureItems.length > 0;
-  const hasDesign = Boolean(project?.hook?.trim() || project?.design_philosophy?.trim());
+  const hasDesign = Boolean(project?.hook?.trim());
+  const hasDesignPreview = Boolean(project?.figma_image_url?.trim());
   const hasResult = Boolean(project?.impact_reflection?.trim());
 
   const sidebarItems = useMemo(() => {
@@ -419,14 +419,38 @@ export default function ProjectDetailsPage({
   }, [isMobileSidebarOpen]);
 
   useEffect(() => {
+    if (!activeFeature) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setActiveFeature(null);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [activeFeature]);
+
+  useEffect(() => {
     setIsMobileSidebarOpen(false);
+    setActiveFeature(null);
   }, [projectId]);
 
   if (isLoading) {
     return (
       <section className="w-full px-5 py-6 lg:px-6">
-        <div className="mx-auto flex min-h-[380px] w-full max-w-[1200px] items-center justify-center text-[24px] font-medium text-secondary">
-          Loading project details...
+        <div className="mx-auto flex min-h-[380px] w-full max-w-[1200px] flex-col items-center justify-center gap-3">
+          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-[15px] font-medium text-secondary">Loading project...</p>
         </div>
       </section>
     );
@@ -436,13 +460,15 @@ export default function ProjectDetailsPage({
     return (
       <section className="w-full px-5 py-6 lg:px-6">
         <div className="mx-auto flex min-h-[380px] w-full max-w-[1200px] flex-col items-center justify-center gap-5">
-          <p className="text-[24px] font-medium text-secondary">Project not found.</p>
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary text-3xl">✦</div>
+          <p className="text-[22px] font-semibold text-black">Project not found</p>
+          <p className="text-[15px] text-secondary">This project may have been moved or removed.</p>
           <button
             type="button"
             onClick={onBack}
-            className="rounded-[14px] bg-primary px-6 py-3 text-[16px] font-semibold text-white"
+            className="mt-1 inline-flex items-center gap-2 rounded-[14px] bg-primary px-6 py-3 text-[14px] font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
           >
-            Back to Works
+            <ArrowLeft size={15} /> Back to Works
           </button>
         </div>
       </section>
@@ -452,155 +478,183 @@ export default function ProjectDetailsPage({
   return (
     <section ref={pageRef} className="w-full bg-transparent px-4 py-4 md:px-5 md:py-6 lg:px-6">
       <div className="mx-auto w-full max-w-[1440px]">
-          <div className="mx-auto flex w-full max-w-[1200px] items-start gap-6 lg:gap-8">
-          <aside data-details-reveal className="hidden w-[242px] shrink-0 translate-y-5 opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block">
+        <div className="mx-auto flex w-full max-w-[1200px] items-start gap-8 lg:gap-10">
+
+          {/* ── Desktop Sidebar ── */}
+          <aside
+            data-details-reveal
+            className="hidden w-[220px] shrink-0 translate-y-5 opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block"
+          >
             <button
               type="button"
               onClick={onBack}
-              className="mb-4 inline-flex items-center gap-1.5 text-left text-[20px] font-bold leading-none text-primary transition-opacity hover:opacity-80"
+              className="mb-6 inline-flex items-center gap-1.5 text-[14px] font-semibold text-secondary transition-colors hover:text-primary"
             >
-              <ArrowLeft size={20} /> Back to Works
+              <ArrowLeft size={15} />
+              Back to Works
             </button>
-            <div className="space-y-1.5">
+
+            <nav className="space-y-0.5">
               {sidebarItems.map((item) => (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => {
-                    goToSection(item.id, true);
-                  }}
-                  className={`block min-h-[40px] w-full rounded-[20px] px-4 py-1.5 text-left text-[22px] leading-none transition-all ${
+                  onClick={() => goToSection(item.id, true)}
+                  className={`group relative flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left text-[14px] font-medium transition-all duration-200 ${
                     activeSidebarItem === item.id
-                      ? "bg-primary font-medium text-white shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)]"
-                      : "font-normal text-secondary hover:text-primary"
+                      ? "bg-primary/10 text-primary"
+                      : "text-secondary hover:bg-black/4 hover:text-black"
                   }`}
                 >
-                  {item.label}
+                  {activeSidebarItem === item.id && (
+                    <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />
+                  )}
+                  <span className="pl-1">{item.label}</span>
                 </button>
               ))}
-            </div>
+            </nav>
           </aside>
 
-          <article className="min-w-0 w-full flex-1">
-            <button
-              type="button"
-              onClick={onBack}
-              className="mb-4 inline-flex items-center gap-1.5 text-left text-[18px] font-bold text-primary transition-opacity hover:opacity-80 lg:hidden"
-            >
-              <ArrowLeft size={18} /> Back to Works
-            </button>
+          {/* ── Main Content ── */}
+          <article className="min-w-0 w-full flex-1 pb-16">
 
-            <div className="mb-4 flex items-center justify-start lg:hidden">
+            {/* Mobile back + sections bar */}
+            <div className="mb-5 flex items-center justify-between lg:hidden">
+              <button
+                type="button"
+                onClick={onBack}
+                className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-secondary transition-colors hover:text-primary"
+              >
+                <ArrowLeft size={15} /> Back
+              </button>
               <button
                 type="button"
                 onClick={() => setIsMobileSidebarOpen(true)}
-                className="inline-flex h-[42px] items-center gap-2 rounded-[20px] border border-primary/20 bg-white px-4 text-[14px] font-semibold text-primary shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+                className="inline-flex h-[36px] items-center gap-1.5 rounded-[10px] border border-black/12 bg-white px-3 text-[13px] font-semibold text-black/70 shadow-sm transition-all hover:border-primary/30 hover:text-primary"
               >
-                <span className="text-[18px] leading-none">☰</span>
+                <span className="text-[16px] leading-none">☰</span>
                 Sections
               </button>
             </div>
 
-            <div className={`mb-5 flex flex-wrap items-center justify-between gap-4 transition-all duration-700 ease-out ${
-              isPageMounted ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+            {/* ── Header ── */}
+            <div className={`mb-6 transition-all duration-700 ease-out ${
+              isPageMounted ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
             }`}>
-              <h1 className="break-words text-[36px] font-bold leading-none text-black transition-transform duration-300 hover:translate-x-0.5">{project.title}</h1>
-              <div className="flex items-center gap-3">
-                {project.github_repo_url ? (
-                  <a
-                    href={project.github_repo_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-[43px] items-center rounded-[14px] bg-black px-5 text-[14px] font-semibold text-white"
-                  >
-                    Code
-                  </a>
-                ) : null}
-                {project.live_demo_url ? (
-                  <a
-                    href={project.live_demo_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-[43px] items-center rounded-[14px] bg-primary px-5 text-[14px] font-semibold text-white"
-                  >
-                    Watch
-                  </a>
-                ) : null}
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
+                <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.02em] text-black md:text-[34px]">
+                  {project.title}
+                </h1>
+                <div className="flex items-center gap-2">
+                  {project.github_repo_url ? (
+                    <a
+                      href={project.github_repo_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-[38px] items-center gap-2 rounded-[10px] border border-black/15 bg-white px-4 text-[13px] font-semibold text-black transition-all hover:border-black/30 hover:bg-black/5 active:scale-[0.98]"
+                    >
+                      <Github size={15} />
+                      GitHub
+                    </a>
+                  ) : null}
+                  {project.live_demo_url ? (
+                    <a
+                      href={project.live_demo_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-[38px] items-center gap-2 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+                    >
+                      <Play size={13} fill="currentColor" />
+                      Watch Demo
+                    </a>
+                  ) : null}
+                </div>
               </div>
+
+              <p className={`max-w-[680px] text-[16px] leading-[1.6] text-secondary transition-all duration-700 delay-75 ease-out ${
+                isPageMounted ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+              }`}>
+                {project.description}
+              </p>
             </div>
 
-            <p className={`mb-6 max-w-[780px] break-words text-[20px] font-medium leading-[1.2] text-secondary transition-all duration-700 delay-75 ease-out ${
-              isPageMounted ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
-            }`}>
-              {project.description}
-            </p>
-
+            {/* ── Hero Image ── */}
             <div
-              className={`group relative mb-12 h-[300px] w-full overflow-hidden bg-[#E3E3E3] sm:h-[360px] ${
-                project.live_project_url ? "cursor-pointer" : ""
-              } transition-all duration-700 delay-100 ease-out ${isPageMounted ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"}`}
+              className={`group relative mb-14 overflow-hidden rounded-[18px] bg-[#F0EFF5] transition-all duration-700 delay-100 ease-out ${
+                isPageMounted ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+              } ${project.live_project_url ? "cursor-pointer" : ""}`}
+              style={{ aspectRatio: "16/8" }}
             >
               {project.thumbnail_url ? (
                 <img
                   src={project.thumbnail_url}
                   alt={project.title || "Project image"}
-                  className="h-full w-full object-contain object-center transition-transform duration-300 ease-out group-hover:scale-[1.02]"
+                  className="h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover:scale-[1.015]"
                 />
               ) : null}
               {project.live_project_url ? (
-                <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/10" />
-              ) : null}
-              {project.live_project_url ? (
-                <a
-                  href={project.live_project_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Open live project website"
-                  className="absolute inset-0 z-[2]"
-                >
-                  <span className="absolute bottom-4 right-4 inline-flex h-[52px] w-[52px] items-center justify-center rounded-full bg-primary text-white shadow-[0px_4px_20px_0px_rgba(163,134,255,0.5)] transition-all duration-200 group-hover:-translate-y-1 group-hover:scale-110 active:scale-95">
-                    <ArrowUpRight size={24} />
-                  </span>
-                </a>
+                <>
+                  <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/8 rounded-[18px]" />
+                  <a
+                    href={project.live_project_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open live project"
+                    className="absolute inset-0 z-[2]"
+                  >
+                    <span className="absolute bottom-4 right-4 inline-flex h-[46px] w-[46px] items-center justify-center rounded-full bg-primary text-white shadow-lg transition-all duration-200 group-hover:-translate-y-1 group-hover:scale-110 active:scale-95">
+                      <ArrowUpRight size={20} />
+                    </span>
+                  </a>
+                </>
               ) : null}
             </div>
 
+            {/* ── Divider line ── */}
+            <div className="mb-14 h-px w-full bg-black/8" />
+
+            {/* ── Overview ── */}
             {hasOverview ? (
-              <section id="overview" data-details-reveal className="mb-12 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
-                <h2 className="mb-5 text-[24px] font-bold uppercase tracking-[0.34em] text-primary">Overview</h2>
-                <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-[minmax(0,1fr)_260px]">
+              <section
+                id="overview"
+                data-details-reveal
+                className="mb-14 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out"
+              >
+                <p className="mb-4 text-[12px] font-semibold uppercase tracking-[0.12em] text-secondary">Overview</p>
+                <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[minmax(0,1fr)_240px]">
                   <div>
                     {project.overview ? (
-                      <h3 className="max-w-[620px] text-[32px] font-medium leading-[1] text-black">{project.overview}</h3>
-                    ) : null}
-                    {project.goal ? (
-                      <p className="mt-4 max-w-[620px] text-[20px] font-medium leading-[1.2] text-secondary">{project.goal}</p>
+                      <div className="rounded-[16px] border border-black/8 bg-black/[0.02] p-7 md:p-8">
+                        <p className="max-w-[820px] text-[20px] font-medium leading-[1.4] tracking-[-0.01em] text-black/75 md:text-[24px]">
+                          {project.overview}
+                        </p>
+                      </div>
                     ) : null}
                   </div>
 
-                  {project.my_role || ownerName ? (
-                    <article className="rounded-[14px] bg-white p-4">
-                      {ownerName ? (
-                        <div className="mb-3 flex items-center gap-2 border-b border-black/15 pb-3">
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-[14px] font-bold text-white">
-                            {ownerName.charAt(0).toUpperCase()}
-                          </span>
-                          <p className="text-[11px] font-bold text-secondary">{ownerName}</p>
-                        </div>
-                      ) : null}
+                  {(project.my_role || ownerName) ? (
+                    <div className="rounded-[14px] border border-black/8 bg-white/80 p-5 backdrop-blur-sm">
+                      <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-secondary">Role</p>
                       {project.my_role ? (
-                        <p className="text-[32px] font-bold leading-[1.05] text-secondary">{project.my_role}</p>
+                        <p className="text-[18px] font-semibold leading-[1.2] text-black">
+                          {project.my_role}
+                        </p>
                       ) : null}
-                    </article>
+                    </div>
                   ) : null}
                 </div>
               </section>
             ) : null}
 
+            {/* ── Engineering Stack ── */}
             {hasTools ? (
-              <section id="tools" data-details-reveal className="mb-12 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
-                <h2 className="mb-5 text-[24px] font-bold uppercase tracking-[0.34em] text-primary">Engineering Stack</h2>
-                <div className="flex flex-wrap gap-3">
+              <section
+                id="tools"
+                data-details-reveal
+                className="mb-14 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out"
+              >
+                <p className="mb-4 text-[12px] font-semibold uppercase tracking-[0.12em] text-secondary">Engineering Stack</p>
+                <div className="flex flex-wrap gap-2">
                   {techStack.map((tech, index) => (
                     <SkillTag
                       onClick={() => {
@@ -615,123 +669,186 @@ export default function ProjectDetailsPage({
               </section>
             ) : null}
 
+            {/* ── Key Features ── */}
             {hasFeatures ? (
-              <section id="features" data-details-reveal className="mb-12 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
-                <h2 className="mb-5 text-[24px] font-bold uppercase tracking-[0.34em] text-primary">Key Features</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  {featureItems.map((feature, index) => (
-                    <article
-                      key={`${feature.title}-${feature.description}-${index}`}
-                      style={{ transitionDelay: `${Math.min(index, 7) * 60}ms` }}
-                      className="group rounded-[22px] bg-white p-5 shadow-[0px_2px_2px_0px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)]"
-                    >
-                      <span className="mb-3 inline-flex h-[42px] w-[42px] items-center justify-center rounded-[8px] bg-primary/20 text-primary transition-transform duration-300 group-hover:rotate-6">◔</span>
-                      <h3 className="mb-2 break-words text-[18px] font-bold text-black">{feature.title}</h3>
-                      {feature.description ? (
-                        <p className="line-clamp-6 break-words text-[12px] leading-[1.15] text-secondary">{feature.description}</p>
-                      ) : null}
-                    </article>
-                  ))}
+              <section
+                id="features"
+                data-details-reveal
+                className="mb-14 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out"
+              >
+                <p className="mb-5 text-[12px] font-semibold uppercase tracking-[0.12em] text-secondary">Key Features</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {featureItems.map((feature, index) => {
+                    const isLongDescription = feature.description.length > 140;
+
+                    return (
+                      <article
+                        key={`${feature.title}-${feature.description}-${index}`}
+                        style={{ transitionDelay: `${Math.min(index, 7) * 55}ms` }}
+                        className="group flex flex-col gap-3 rounded-[16px] border border-black/8 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+                      >
+                        <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-primary/8 text-[15px] text-primary transition-transform duration-300 group-hover:scale-110">
+                          ◔
+                        </div>
+                        <h3 className="text-[14px] font-semibold leading-[1.3] text-black">{feature.title}</h3>
+                        {feature.description ? (
+                          <p className="line-clamp-5 text-[13px] leading-[1.5] text-secondary">{feature.description}</p>
+                        ) : null}
+                        {isLongDescription ? (
+                          <button
+                            type="button"
+                            onClick={() => setActiveFeature(feature)}
+                            className="mt-auto inline-flex h-9 items-center self-start rounded-[10px] px-3 text-[12px] font-semibold text-primary transition-all hover:bg-primary/10 active:scale-[0.98]"
+                          >
+                            Read full details
+                          </button>
+                        ) : null}
+                      </article>
+                    );
+                  })}
                 </div>
               </section>
             ) : null}
 
+            {/* ── Design ── */}
             {hasDesign ? (
-              <section id="design" data-details-reveal className="mb-12 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
-                <h2 className="mb-5 text-[24px] font-bold uppercase tracking-[0.34em] text-primary">UI/UX Design</h2>
-                <div className="flex flex-col gap-8 md:flex-row md:gap-10 items-start">
-                  <div className="flex-1 min-w-0">
+              <section
+                id="design"
+                data-details-reveal
+                className="mb-14 scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out"
+              >
+                <p className="mb-5 text-[12px] font-semibold uppercase tracking-[0.12em] text-secondary">Design</p>
+                <div className={`flex flex-col gap-8 md:flex-row md:items-start md:gap-10 ${
+                  hasDesignPreview ? "" : "max-w-[760px]"
+                }`}>
+                  <div className="min-w-0 flex-1">
                     {project.hook ? (
-                      <h3 className="max-w-[420px] text-[36px] font-bold leading-[1.02] text-black mb-4">{project.hook}</h3>
+                      <div className="mb-6 rounded-[16px] border border-black/8 bg-black/[0.02] p-7 md:p-8">
+                        <p className="max-w-[820px] text-[20px] font-medium leading-[1.4] tracking-[-0.01em] text-black/75 md:text-[24px]">
+                          {project.hook}
+                        </p>
+                      </div>
                     ) : null}
-                    {project.design_philosophy ? (
-                      <p className="max-w-[380px] text-[22px] font-medium leading-[1.3] text-secondary mb-6">{project.design_philosophy}</p>
-                    ) : null}
-
                     {project.figma_documentation_url ? (
                       <a
                         href={project.figma_documentation_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-2 inline-flex items-center gap-2 text-[18px] font-semibold text-primary hover:underline hover:text-primary/80 transition-colors"
+                        className="inline-flex items-center gap-1.5 self-start rounded-[10px] border border-black/12 px-4 py-2.5 text-[13px] font-semibold text-black/70 transition-all hover:border-primary/30 hover:text-primary"
                       >
-                        <span className="underline">Explore Figma Documentation</span> <ArrowUpRight size={16} />
+                        View Documentation <ExternalLink size={13} />
                       </a>
                     ) : null}
                   </div>
 
-                  <div className="flex-1 flex flex-col items-center">
-                    <div className="relative mb-2 h-[300px] w-full max-w-[540px] overflow-hidden rounded-2xl border border-[#e0e0e0] bg-white shadow-lg transition-transform duration-300 hover:scale-[1.015] group">
-                      {project.figma_image_url ? (
+                  {hasDesignPreview ? (
+                    <div className="min-w-0 flex-1">
+                      <div className="group relative overflow-hidden rounded-[16px] border border-black/8 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)] transition-all duration-300 hover:shadow-[0_6px_24px_rgba(0,0,0,0.10)]" style={{ aspectRatio: "4/3" }}>
                         <img
-                          src={project.figma_image_url}
-                          alt={project.title || "Project design preview"}
-                          className="h-full w-full object-contain object-center transition-transform duration-300 ease-out group-hover:scale-105"
+                          src={project.figma_image_url || ""}
+                          alt={project.title || "Design preview"}
+                          className="h-full w-full object-contain object-center transition-transform duration-500 ease-out group-hover:scale-[1.02]"
                         />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-gray-400">No Figma preview</div>
-                      )}
+                      </div>
+                      <p className="mt-2 text-[12px] text-secondary">Preview</p>
                     </div>
-                    {project.figma_documentation_url ? (
-                      <div className="mt-1 text-[14px] text-gray-500 text-center w-full max-w-[540px]">Figma preview from documentation</div>
-                    ) : null}
-                  </div>
+                  ) : null}
                 </div>
               </section>
             ) : null}
 
+            {/* ── Final Result ── */}
             {hasResult ? (
-              <section id="result" data-details-reveal className="scroll-mt-28 pb-6 translate-y-5 opacity-0 transition-all duration-700 ease-out">
-                <h2 className="mb-5 text-[24px] font-bold uppercase tracking-[0.34em] text-primary">Final Result</h2>
-                <h3 className="mb-3 text-[48px] font-bold leading-none text-black">Reflection</h3>
-                <p className="max-w-[900px] text-[38px] font-medium leading-[1.05] text-secondary">{project.impact_reflection}</p>
+              <section
+                id="result"
+                data-details-reveal
+                className="scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out"
+              >
+                <p className="mb-5 text-[12px] font-semibold uppercase tracking-[0.12em] text-secondary">Final Result</p>
+                <div className="rounded-[16px] border border-black/8 bg-black/[0.02] p-7 md:p-8">
+                  <p className="max-w-[820px] text-[20px] font-medium leading-[1.4] tracking-[-0.01em] text-black/75 md:text-[24px]">
+                    {project.impact_reflection}
+                  </p>
+                </div>
               </section>
             ) : null}
           </article>
         </div>
       </div>
 
+      {/* ── Mobile Sidebar Drawer ── */}
       {isMobileSidebarOpen ? (
-        <div className="fixed inset-0 z-[80] bg-black/35 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setIsMobileSidebarOpen(false)}
-            className="h-full w-full"
-            aria-label="Close sections backdrop"
-          />
-          <div className="absolute left-0 top-0 h-full w-full max-w-[320px] overflow-y-auto bg-white px-4 py-4 shadow-[10px_0_24px_rgba(15,24,51,0.2)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[16px] font-bold text-black">Project Sections</h3>
+        <div className="fixed inset-0 z-[80] lg:hidden">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]">
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="h-full w-full"
+              aria-label="Close sections backdrop"
+            />
+          </div>
+          <div className="absolute left-0 top-0 h-full w-full max-w-[300px] overflow-y-auto bg-white px-5 py-5 shadow-[16px_0_48px_rgba(0,0,0,0.12)]">
+            <div className="mb-5 flex items-center justify-between">
+              <p className="text-[15px] font-bold text-black">Sections</p>
               <button
                 type="button"
                 onClick={() => setIsMobileSidebarOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-primary/30 text-[18px] text-primary"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-black/12 text-[15px] text-secondary transition-colors hover:border-primary/30 hover:text-primary"
                 aria-label="Close sections"
               >
                 ✕
               </button>
             </div>
 
-            <ul className="space-y-2">
+            <nav className="space-y-1">
               {sidebarItems.map((item) => (
-                <li key={`mobile-${item.id}`}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      goToSection(item.id, true);
-                      setIsMobileSidebarOpen(false);
-                    }}
-                    className={`h-[42px] w-full rounded-[999px] border px-4 text-left text-[14px] leading-none transition-all ${
-                      activeSidebarItem === item.id
-                        ? "border-primary bg-primary font-bold text-white shadow-[0_6px_18px_rgba(128,94,255,0.35)]"
-                        : "border-[#DCE0E8] bg-transparent font-semibold text-secondary"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                </li>
+                <button
+                  key={`mobile-${item.id}`}
+                  type="button"
+                  onClick={() => {
+                    goToSection(item.id, true);
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  className={`flex h-[42px] w-full items-center rounded-[10px] px-3 text-left text-[14px] font-medium transition-all ${
+                    activeSidebarItem === item.id
+                      ? "bg-primary text-white"
+                      : "text-secondary hover:bg-black/5 hover:text-black"
+                  }`}
+                >
+                  {item.label}
+                </button>
               ))}
-            </ul>
+            </nav>
+          </div>
+        </div>
+      ) : null}
+
+      {activeFeature ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center px-4 py-6">
+          <button
+            type="button"
+            onClick={() => setActiveFeature(null)}
+            className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+            aria-label="Close feature details"
+          />
+          <div className="relative z-[1] max-h-[min(620px,calc(100vh-48px))] w-full max-w-[560px] overflow-y-auto rounded-[20px] bg-white p-6 shadow-[0_24px_80px_rgba(15,24,51,0.24)] md:p-7">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Feature</p>
+                <h3 className="text-[22px] font-semibold leading-tight text-black">{activeFeature.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveFeature(null)}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-black/10 text-[15px] text-secondary transition-colors hover:border-primary/30 hover:text-primary"
+                aria-label="Close feature details"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="whitespace-pre-line text-[15px] leading-[1.75] text-secondary">
+              {activeFeature.description}
+            </p>
           </div>
         </div>
       ) : null}

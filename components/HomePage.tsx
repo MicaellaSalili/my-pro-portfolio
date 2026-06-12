@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SkillTag from "./SkillTag";
 import RevealOnScroll from "./RevealOnScroll";
 import { ArrowUpRight } from "lucide-react";
@@ -72,8 +72,6 @@ type HomePageCacheData = {
   specializations: SpecializationData[];
   profile: FooterProfileData | null;
 };
-
-// Removed RevealOnScroll: all sections now render statically
 
 let cachedHomeProfile: FooterProfileData | null = null;
 let homePageMemoryCache: HomePageCacheData | null = null;
@@ -167,17 +165,17 @@ function HomeHeroSection({
 
   if (!profile) {
     return (
-      <section className="w-full px-6 py-12 md:px-10 lg:px-[70px]">
-        <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-10 lg:flex-row lg:items-center lg:justify-center lg:gap-[96px]">
+      <section className="w-full px-5 py-10 sm:px-6 md:px-10 lg:px-[70px]">
+        <div className="mx-auto flex max-w-[1180px] flex-col items-center gap-8 lg:flex-row lg:justify-center lg:gap-16">
           <div
-            className="h-[260px] w-[260px] shrink-0 rounded-full border-2 bg-white/50 md:h-[300px] md:w-[300px] lg:h-[335px] lg:w-[335px]"
+            className="aspect-square w-full max-w-[280px] animate-pulse rounded-t-[36px] border-2 bg-white/60 shadow-[8px_8px_0px_0px_var(--color-primary)] md:max-w-[340px]"
             style={{ borderColor: "var(--color-secondary)" }}
           />
-          <div className="flex w-full max-w-[595px] flex-col items-start gap-6 px-1">
-            <div className="h-6 w-[260px] rounded bg-white/60" />
-            <div className="h-6 w-[320px] rounded bg-white/60" />
-            <div className="h-5 w-full max-w-[560px] rounded bg-white/60" />
-            <div className="h-5 w-[85%] rounded bg-white/60" />
+          <div className="flex w-full max-w-[620px] flex-col gap-4 px-1">
+            <div className="h-7 w-[70%] animate-pulse rounded bg-white/70" />
+            <div className="h-10 w-[88%] animate-pulse rounded bg-white/70" />
+            <div className="h-5 w-full animate-pulse rounded bg-white/70" />
+            <div className="h-5 w-[82%] animate-pulse rounded bg-white/70" />
           </div>
         </div>
       </section>
@@ -205,43 +203,44 @@ function HomeHeroSection({
   ];
 
   return (
-    <section className="w-full px-6 pt-12 pb-24 md:px-10 lg:px-[70px] lg:pb-32">
-      <div className={`mx-auto flex max-w-[1320px] flex-col-reverse items-center gap-10 transition-all duration-[900ms] ease-out lg:flex-row lg:items-center lg:justify-between lg:gap-[72px] motion-reduce:transition-none ${
-        isVisible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
-      }`.replace("lg:justify-between", "lg:justify-center") }>
-        <div
-          className="relative h-[200px] w-[240px] px-6 shrink-0 overflow-hidden rounded-[32px] border-2 border-violet-400 bg-white shadow-[0_8px_32px_0_rgba(163,134,255,0.18),8px_8px_0px_0px_var(--color-primary)] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_16px_48px_0_rgba(163,134,255,0.28),12px_12px_0px_0px_var(--color-primary)] active:scale-95 md:h-[260px] md:w-[320px] lg:h-[320px] lg:w-[400px] flex flex-col justify-center items-center"
-        >
-          {/* macOS window top bar */}
-          <div className="absolute left-0 top-0 z-20 flex h-10 w-full items-center rounded-t-[28px] bg-gradient-to-b from-gray-100/80 to-white/0 border-b border-gray-200 px-4">
-            <span className="inline-block h-3 w-3 rounded-full bg-red-400 border border-gray-300 shadow-sm mr-2"></span>
-            <span className="inline-block h-3 w-3 rounded-full bg-yellow-300 border border-gray-300 shadow-sm mr-2"></span>
-            <span className="inline-block h-3 w-3 rounded-full bg-green-400 border border-gray-300 shadow-sm"></span>
+    <section className="w-full px-5 pb-16 pt-8 sm:px-6 md:px-10 md:pb-20 lg:px-[70px] lg:pb-28 lg:pt-12">
+      <div
+        className={`mx-auto flex max-w-[1280px] flex-col-reverse items-center gap-10 transition-all duration-[900ms] ease-out lg:flex-row lg:justify-center lg:gap-20 motion-reduce:transition-none ${
+          isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
+        }`}
+      >
+        <div className="relative flex aspect-square w-full max-w-[280px] shrink-0 flex-col overflow-hidden rounded-[38px] border-2 border-violet-400 bg-white shadow-[8px_8px_0px_0px_var(--color-primary),0_18px_45px_rgba(128,94,255,0.14)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_var(--color-primary),0_24px_60px_rgba(128,94,255,0.2)] sm:max-w-[340px] sm:rounded-[48px] md:max-w-[390px] lg:max-w-[430px]">
+          <div className="flex h-[54px] w-full shrink-0 items-center gap-3 rounded-t-[36px] bg-white px-7 sm:h-[64px] sm:rounded-t-[46px] sm:px-9">
+            <span className="h-0.5 w-0.5 rounded-full bg-[#ef655d] sm:h-4 sm:w-4" />
+            <span className="h-0.5 w-0.5 rounded-full bg-[#e7bf45] sm:h-4 sm:w-4" />
+            <span className="h-0.5 w-0.5 rounded-full bg-[#62bd58] sm:h-4 sm:w-4" />
           </div>
           {profile.profile_image_url ? (
             <img
               src={profile.profile_image_url}
-              alt={profile.name || ""}
-              className="mt-9 h-[calc(100%-2.25rem)] w-auto max-h-[calc(100%-2.25rem)] object-contain z-10"
+              alt={profile.name || "Profile portrait"}
+              className="h-full min-h-0 w-full flex-1 object-cover object-center"
             />
           ) : null}
         </div>
 
-        <div className={`flex w-full max-w-[680px] flex-col items-start gap-7 px-1 transition-all duration-[950ms] delay-150 ease-out motion-reduce:transition-none ${
-          isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
-        }`}>
-          <div className="text-[56px] font-extrabold leading-[0.95] text-[#0f1833] md:text-[72px] lg:text-[92px]">
-            <p>{profile.hero_title}</p>
-            <p className="font-extrabold" style={{ color: "var(--color-primary)" }}>
+        <div
+          className={`flex w-full max-w-[680px] flex-col items-center gap-6 px-1 text-center transition-all delay-150 duration-[950ms] ease-out md:items-start md:text-left motion-reduce:transition-none ${
+            isVisible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+          }`}
+        >
+          <div className="max-w-full text-[42px] font-extrabold leading-[0.98] tracking-normal text-[#0f1833] sm:text-[54px] md:text-[68px] lg:text-[84px]">
+            <p className="break-words">{profile.hero_title}</p>
+            <p className="break-words font-extrabold" style={{ color: "var(--color-primary)" }}>
               {profile.name}
             </p>
           </div>
 
-          <p className="max-w-[620px] text-[18px] font-medium leading-[1.45] text-slate-600 md:text-[21px]">
+          <p className="max-w-[620px] text-[16px] font-medium leading-[1.65] text-slate-600 sm:text-[18px] md:text-[20px]">
             {profile.hero_sub_headline}
           </p>
 
-          <div className="flex w-full flex-wrap items-center gap-4 md:flex-nowrap md:justify-between md:gap-5">
+          <div className="flex w-full flex-wrap items-center justify-center gap-3 bg-transparent p-0 md:justify-start">
             {socialLinks.map((item) => (
               <a
                 key={item.label}
@@ -254,11 +253,11 @@ function HomeHeroSection({
                     event.preventDefault();
                   }
                 }}
-                className="relative flex h-[44px] w-[44px] items-center justify-center rounded-full transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-110 hover:bg-white/40 active:scale-95"
+                className="relative flex h-[44px] w-[44px] items-center justify-center rounded-full transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-110 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-primary/40 active:scale-95"
               >
-                <img src={item.src} alt="" className="h-[31px] w-[31px] object-contain" />
+                <img src={item.src} alt="" className="h-[30px] w-[30px] object-contain" />
                 {item.type === "email" && item.srcOverlay ? (
-                  <img src={item.srcOverlay} alt="" className="pointer-events-none absolute h-[28px] w-[28px] object-contain" />
+                  <img src={item.srcOverlay} alt="" className="pointer-events-none absolute h-[27px] w-[27px] object-contain" />
                 ) : null}
               </a>
             ))}
@@ -266,11 +265,11 @@ function HomeHeroSection({
 
           <button
             onClick={() => setCurrentPage("about")}
-            className="inline-flex h-[56px] items-center rounded-[19px] px-7 text-[26px] font-normal leading-none text-white shadow-[0_6px_16px_rgba(128,94,255,0.3)] transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(128,94,255,0.36)] hover:opacity-95 active:translate-y-0 active:scale-[0.96]"
+            className="inline-flex min-h-[54px] items-center justify-center rounded-[18px] px-6 text-[20px] font-semibold leading-none text-white shadow-[0_10px_24px_rgba(128,94,255,0.28)] transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_16px_30px_rgba(128,94,255,0.36)] hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:translate-y-0 active:scale-[0.97] sm:px-7 sm:text-[22px]"
             style={{ backgroundColor: "var(--color-primary)" }}
           >
             <span>Learn More</span>
-            <img src={imgArrowFilled} alt="" className="ml-3 h-[20px] w-[24px]" />
+            <img src={imgArrowFilled} alt="" className="ml-3 h-[18px] w-[22px]" />
           </button>
         </div>
       </div>
@@ -287,7 +286,7 @@ function ProjectImageIcon() {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      className="h-[84px] w-[84px]"
+      className="h-[72px] w-[72px] sm:h-[84px] sm:w-[84px]"
     >
       <rect x="4" y="8" width="76" height="68" rx="9" stroke="#292929" strokeWidth="3" />
       <circle cx="28" cy="28" r="6" stroke="#292929" strokeWidth="3" />
@@ -344,9 +343,9 @@ function ProjectCard({
   return (
     <article
       onClick={() => onOpenProjectDetails(project.id)}
-      className="group relative h-full w-full cursor-pointer rounded-[20px] border border-primary bg-white p-[20px] pb-24 shadow-[10px_10px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[14px_14px_0px_0px_var(--color-primary)]"
+      className="group relative flex h-full w-full cursor-pointer flex-col rounded-[20px] border border-primary bg-white p-4 pb-20 shadow-[7px_7px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[11px_11px_0px_0px_var(--color-primary)] sm:p-5 sm:pb-24"
     >
-      <div className="mb-6 flex flex-wrap items-center gap-2">
+      <div className="mb-5 flex min-h-[32px] flex-wrap items-center gap-2">
         {visibleTechStack.map((tech, idx) => (
           <SkillTag
             onClick={(event) => {
@@ -364,33 +363,31 @@ function ProjectCard({
               event.stopPropagation();
               setShowAllTech((previous) => !previous);
             }}
-            className="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full bg-primary/15 px-2 text-[14px] font-semibold leading-none text-primary transition-colors hover:bg-primary/25"
+            className="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full bg-primary/15 px-2 text-[14px] font-semibold leading-none text-primary transition-colors hover:bg-primary/25 focus:outline-none focus:ring-2 focus:ring-primary/30"
             aria-label={showAllTech ? "Show fewer tech skills" : `Show ${hiddenTechCount} more tech skills`}
           >
-            {showAllTech ? "−" : `+${hiddenTechCount}`}
+            {showAllTech ? "-" : `+${hiddenTechCount}`}
           </button>
         ) : null}
       </div>
 
-      <div className="mb-8 h-[194px] w-full overflow-hidden rounded-[18px] bg-white">
+      <div className="mb-6 flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-[16px] bg-slate-50">
         {project.thumbnail_url ? (
           <img
             src={project.thumbnail_url}
             alt={project.title}
-            className="h-full w-full object-contain object-center"
+            className="h-full w-full object-contain object-center transition-transform duration-300 ease-out group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <ProjectImageIcon />
-          </div>
+          <ProjectImageIcon />
         )}
       </div>
 
-      <h3 className="text-left text-[42px] font-extrabold leading-[1.06] text-black">
+      <h3 className="text-left text-[28px] font-extrabold leading-[1.08] text-black sm:text-[34px] md:text-[38px]">
         {project.title}
       </h3>
 
-      <p className="mt-3 line-clamp-3 text-left text-[16px] font-medium leading-relaxed text-secondary">
+      <p className="mt-3 line-clamp-3 text-left text-[15px] font-medium leading-relaxed text-secondary sm:text-[16px]">
         {project.description}
       </p>
 
@@ -401,7 +398,7 @@ function ProjectCard({
           event.stopPropagation();
           onOpenProjectDetails(project.id);
         }}
-        className="absolute bottom-8 right-8 inline-flex h-[48px] w-[48px] items-center justify-center rounded-[16px] bg-primary text-white transition-colors hover:opacity-90"
+        className="absolute bottom-6 right-6 inline-flex h-[46px] w-[46px] items-center justify-center rounded-[15px] bg-primary text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:translate-y-0 active:scale-95 sm:bottom-7 sm:right-7 sm:h-[48px] sm:w-[48px]"
       >
         <ArrowUpRight size={22} />
       </button>
@@ -478,7 +475,7 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
         description: item.description,
         bullets: item.bullets || [],
         icon: imgSpecRedesign,
-        iconClassName: "h-[56px] w-[56px]",
+        iconClassName: "h-[52px] w-[52px] sm:h-[56px] sm:w-[56px]",
       };
     });
   }, [specializations]);
@@ -490,7 +487,7 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
 
   if (!isHomeReady) {
     return (
-      <section className="w-full px-6 pb-12 pt-4 md:px-10 lg:flex lg:min-h-[calc(100vh-120px)] lg:items-center lg:px-[70px] lg:py-0">
+      <section className="w-full px-5 pb-12 pt-10 sm:px-6 md:px-10 lg:flex lg:min-h-[calc(100vh-120px)] lg:items-center lg:px-[70px] lg:py-0">
         <div className="mx-auto flex w-full max-w-[1100px] flex-col items-center justify-center gap-4">
           <div className="h-3 w-[180px] animate-pulse rounded-full bg-primary/40" />
           <p className="text-sm font-medium text-secondary/80">Loading portfolio...</p>
@@ -500,95 +497,120 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full overflow-hidden">
       <HomeHeroSection setCurrentPage={setCurrentPage} profile={profile} />
 
       <RevealOnScroll threshold={0.2}>
-        <section className="w-full px-6 pt-8 pb-12 md:px-10 lg:px-[70px]">
-          <div className="mx-auto max-w-[1300px] rounded-[20px] py-[25px]">
-          <h2 className="mb-6 text-center text-[36px] font-bold text-secondary">Specialization</h2>
-          <div className="grid grid-cols-1 gap-[30px] lg:grid-cols-3">
-            {serviceCards.map((card) => (
-              <article
-                key={card.title}
-                className="group rounded-[20px] border border-primary bg-white p-[20px] shadow-[10px_10px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[14px_14px_0px_0px_var(--color-primary)]"
-              >
-                <div className="relative mb-4 h-[72px] w-[72px]">
-                  <img src={card.icon} alt="" className={`${card.iconClassName} object-contain transition-transform duration-300 ease-out group-hover:scale-110`} />
-                  {card.iconOverlay ? (
-                    <img src={card.iconOverlay} alt="" className="absolute bottom-1 right-1 h-[24px] w-[24px] object-contain" />
-                  ) : null}
-                </div>
-                <h3 className="mb-3 text-[24px] font-medium text-black">{card.title}</h3>
-                <p className="mb-3 text-[18px] font-medium leading-[1.3] text-secondary">{card.description}</p>
-                <ul className="list-disc space-y-1 pl-5 text-[18px] font-medium text-secondary">
-                  {card.bullets.map((bullet) => (
-                    <li key={bullet}>{bullet}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
+        <section className="w-full px-5 py-12 sm:px-6 md:px-10 lg:px-[70px]">
+          <div className="mx-auto max-w-[1300px]">
+            <div className="mb-8 text-center">
+              <h2 className="text-[30px] font-bold leading-tight text-secondary sm:text-[36px]">
+                Specialization
+              </h2>
+            </div>
 
-          <div className="mt-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-            <p className="max-w-[840px] text-[14px] font-medium text-secondary">
-              Have something specific in mind? Feel free to ask me any questions or let me know exactly what you need.
-            </p>
-            <button
-              onClick={() => setCurrentPage("contact")}
-              className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md hover:opacity-95 active:translate-y-0 active:scale-[0.98] md:px-8 md:text-base"
-              style={{ backgroundColor: "var(--color-primary)" }}
-            >
-              Inquire
-              <img src={imgArrowFilled} alt="" className="ml-3 h-[20px] w-[24px]" />
-            </button>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-[30px]">
+              {serviceCards.map((card) => (
+                <article
+                  key={card.title}
+                  className="group rounded-[20px] border border-primary bg-white p-5 shadow-[7px_7px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[11px_11px_0px_0px_var(--color-primary)] sm:p-6"
+                >
+                  <div className="relative mb-5 flex h-[72px] w-[72px] items-center justify-center rounded-[18px] bg-primary/10">
+                    <img src={card.icon} alt="" className={`${card.iconClassName} object-contain transition-transform duration-300 ease-out group-hover:scale-110`} />
+                    {card.iconOverlay ? (
+                      <img src={card.iconOverlay} alt="" className="absolute bottom-1 right-1 h-[24px] w-[24px] object-contain" />
+                    ) : null}
+                  </div>
+
+                  <h3 className="mb-3 text-[22px] font-bold leading-tight text-black sm:text-[24px]">
+                    {card.title}
+                  </h3>
+
+                  <p className="mb-4 text-[16px] font-medium leading-[1.55] text-secondary sm:text-[17px]">
+                    {card.description}
+                  </p>
+
+                  <ul className="list-disc space-y-2 pl-5 text-[15px] font-medium leading-relaxed text-secondary sm:text-[16px]">
+                    {card.bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+
+            <div className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-[20px] border border-primary/15 bg-white/60 p-4 backdrop-blur sm:p-5 md:flex-row md:items-center">
+              <p className="max-w-[840px] text-[14px] font-medium leading-relaxed text-secondary sm:text-[15px]">
+                Have something specific in mind? Feel free to ask me any questions or let me know exactly what you need.
+              </p>
+
+              <button
+                onClick={() => setCurrentPage("contact")}
+                className="inline-flex min-h-[46px] shrink-0 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:translate-y-0 active:scale-[0.98] md:px-8 md:text-base"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
+                Inquire
+                <img src={imgArrowFilled} alt="" className="ml-3 h-[18px] w-[22px]" />
+              </button>
+            </div>
           </div>
+        </section>
+      </RevealOnScroll>
+
+      <RevealOnScroll threshold={0.2}>
+        <section className="w-full px-5 py-12 sm:px-6 md:px-10 lg:px-[70px]">
+          <div className="mx-auto max-w-[1300px]">
+            <div className="mb-8 text-center">
+              <h2 className="text-[30px] font-bold leading-tight text-secondary sm:text-[36px]">
+                Milestones
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {milestones.map((milestone) => (
+                <article
+                  key={milestone.id}
+                  className="flex min-h-[128px] flex-col items-center justify-center rounded-[16px] border border-primary bg-white px-5 py-7 text-center shadow-[7px_7px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[11px_11px_0px_0px_var(--color-primary)]"
+                >
+                  <p className="text-[34px] font-extrabold leading-none text-[#805eff] sm:text-[38px]">
+                    {milestone.value}
+                  </p>
+                  <p className="mt-3 text-[17px] font-semibold leading-snug text-secondary sm:text-[19px]">
+                    {milestone.label}
+                  </p>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
       </RevealOnScroll>
 
       <RevealOnScroll threshold={0.05}>
-        <section className="w-full px-6 py-12 md:px-10 lg:px-[70px]">
+        <section className="w-full px-5 py-12 sm:px-6 md:px-10 lg:px-[70px]">
           <div className="mx-auto max-w-[1300px]">
-          <h2 className="mb-3 text-center text-[36px] font-bold text-secondary">Projects</h2>
-          <div className="mb-5 flex items-center">
-            <button
-              onClick={() => setCurrentPage("works")}
-              className="inline-flex h-[50px] w-[176px] items-center justify-center rounded-[19px] border-[3px] border-primary bg-primary text-[20px] font-semibold leading-none text-white transition-all duration-200 ease-out hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0 active:scale-[0.98]"
-            >
-              See All
-            </button>
-          </div>
+            <div className="mb-7 flex flex-col items-center justify-between gap-4 sm:flex-row">
+              <h2 className="text-center text-[30px] font-bold leading-tight text-secondary sm:text-left sm:text-[36px]">
+                Projects
+              </h2>
 
-          <div className="grid grid-cols-1 items-stretch gap-10 xl:grid-cols-2">
-            {visibleProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClickSkillTag={handleSkillTagClick}
-                onOpenProjectDetails={onOpenProjectDetails}
-              />
-            ))}
-          </div>
-          </div>
-        </section>
-      </RevealOnScroll>
-
-      <RevealOnScroll threshold={0.2}>
-        <section className="w-full px-6 py-12 md:px-10 lg:px-[70px]">
-          <div className="mx-auto max-w-[1300px]">
-          <h2 className="mb-6 text-center text-[36px] font-bold text-secondary">Milestones</h2>
-          <div className="flex flex-wrap items-center justify-center gap-[30px]">
-            {milestones.map((milestone) => (
-              <article
-                key={milestone.id}
-                className="flex h-[130px] w-[300px] flex-col items-center justify-center rounded-[10px] border border-primary bg-white px-[10px] py-[30px] text-center shadow-[10px_10px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[14px_14px_0px_0px_var(--color-primary)]"
+              <button
+                onClick={() => setCurrentPage("works")}
+                className="inline-flex h-[48px] w-full items-center justify-center rounded-[16px] border-[3px] border-primary bg-primary px-6 text-[18px] font-semibold leading-none text-white transition-all duration-200 ease-out hover:-translate-y-0.5 hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:translate-y-0 active:scale-[0.98] sm:w-auto"
               >
-                <p className="text-[36px] font-bold text-[#805eff]">{milestone.value}</p>
-                <p className="text-[20px] font-medium text-secondary">{milestone.label}</p>
-              </article>
-            ))}
-          </div>
+                See All
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 items-stretch gap-8 xl:grid-cols-2 xl:gap-10">
+              {visibleProjects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onClickSkillTag={handleSkillTagClick}
+                  onOpenProjectDetails={onOpenProjectDetails}
+                />
+              ))}
+            </div>
           </div>
         </section>
       </RevealOnScroll>
