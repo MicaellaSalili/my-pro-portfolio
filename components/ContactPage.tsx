@@ -28,6 +28,7 @@ type ContactInfoItem = {
   href: string;
   iconSrc: string;
   iconOverlaySrc?: string;
+  rawValue?: string;
 };
 
 const iconEmail = "/assets/hero/icon-email.svg";
@@ -94,6 +95,8 @@ export default function ContactPage() {
   const [submitState, setSubmitState] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [showLeftColumn, setShowLeftColumn] = useState(false);
   const [showFormCard, setShowFormCard] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  
   const leftColumnRef = useRef<HTMLElement | null>(null);
   const formCardRef = useRef<HTMLElement | null>(null);
 
@@ -132,12 +135,14 @@ export default function ContactPage() {
         href: emailAddress ? `mailto:${emailAddress}` : "",
         iconSrc: iconEmail,
         iconOverlaySrc: iconEmailOverlay,
+        rawValue: emailAddress,
       },
       {
         id: "mobile",
-        label: "Mobile Phone",
+        label: "Mobile",
         href: mobileHref,
         iconSrc: iconViber,
+        rawValue: mobileRaw,
       },
       {
         id: "github",
@@ -214,6 +219,37 @@ export default function ContactPage() {
     };
   }, []);
 
+  const handleLinkInteraction = (e: React.MouseEvent<HTMLAnchorElement>, item: ContactInfoItem) => {
+    if (item.id === "email" || item.id === "mobile") {
+      if (item.rawValue) {
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(item.rawValue)
+            .then(() => {
+              setCopiedId(item.id);
+              setTimeout(() => setCopiedId(null), 2500);
+            })
+            .catch(() => {});
+        } else {
+          const textArea = document.createElement("textarea");
+          textArea.value = item.rawValue;
+          textArea.style.position = "fixed";
+          textArea.style.opacity = "0";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand("copy");
+            setCopiedId(item.id);
+            setTimeout(() => setCopiedId(null), 2500);
+          } catch (err) {
+            // Failed fallback silently
+          }
+          document.body.removeChild(textArea);
+        }
+      }
+    }
+  };
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -254,159 +290,167 @@ export default function ContactPage() {
   }
 
   return (
-    <section className="w-full bg-transparent px-5 py-4 lg:px-6">
+    <section className="w-full bg-transparent px-6 pt-2 pb-12 lg:px-12 xl:px-20">
       <div className="mx-auto w-full max-w-[1440px]">
         <RevealOnScroll threshold={0.2}>
-        <div className="mx-auto max-w-[1200px]">
-          <div className="mt-4 grid grid-cols-1 gap-10 lg:grid-cols-[420px_minmax(0,1fr)] lg:items-start">
-            <aside
-              ref={leftColumnRef}
-              data-animate="left"
-              className={`w-full max-w-[420px] transition-all duration-700 ${
-                showLeftColumn ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
-              }`}
-            >
+          <div className="mx-auto max-w-[1240px]">
+            <div className="mt-2 grid grid-cols-1 gap-12 lg:grid-cols-[1fr_560px] lg:items-start xl:gap-24">
+              
+              {/* Left Column: Adaptive Grid for Mobile 2-Columns */}
+              <aside
+                ref={leftColumnRef}
+                data-animate="left"
+                className={`w-full transition-all duration-700 ${
+                  showLeftColumn ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+                }`}
+              >
+                <h2 className="text-[38px] font-bold tracking-tight text-neutral-900 md:text-[44px] leading-none mb-6">
+                  {titleAccent ? (
+                    <>
+                      {titleStart}{" "}
+                      <span className="text-[#997dfa]">{titleAccent}</span>
+                    </>
+                  ) : (
+                    title
+                  )}
+                </h2>
 
-              <h2 className="text-[64px] font-bold leading-none text-black">
-                {titleAccent ? (
-                  <>
-                    {titleStart}{" "}
-                    <span className="text-primary">{titleAccent}</span>
-                  </>
-                ) : (
-                  title
-                )}
-              </h2>
+                {/* Grid shifts between 2 cols on mobile/tablet and 1 col stack on desktop */}
+                <div className="w-full grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-1 lg:max-w-[400px]">
+                  {contactItems.map((item) => {
+                    const isAppProtocol =
+                      item.href.startsWith("mailto:") ||
+                      item.href.startsWith("viber:") ||
+                      item.href.startsWith("tel:");
 
-              <div className="mt-8 space-y-4">
-                {contactItems.map((item) => (
-                  <article
-                    key={item.id}
-                    className="group flex items-center gap-2.5 rounded-[10px] bg-[rgba(246,246,246,0.9)] px-3 py-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99]"
-                  >
-                    <span className="relative inline-flex size-10 shrink-0 items-center justify-center">
-                      <img src={item.iconSrc} alt="" className="h-10 w-10 object-contain" />
-                      {item.iconOverlaySrc ? (
-                        <img src={item.iconOverlaySrc} alt="" className="absolute h-5 w-5 object-contain" />
-                      ) : null}
-                    </span>
+                    const isCopied = copiedId === item.id;
 
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[28px] font-bold leading-none text-black">{item.label}</p>
-                    </div>
-
-                    {item.href ? (
-                      (() => {
-                        const isAppProtocol =
-                          item.href.startsWith("mailto:") ||
-                          item.href.startsWith("viber:") ||
-                          item.href.startsWith("tel:");
-
-                        return (
+                    return (
                       <a
+                        key={item.id}
                         href={item.href}
                         target={!isAppProtocol ? "_blank" : undefined}
                         rel={!isAppProtocol ? "noreferrer" : undefined}
-                        className="text-[24px] font-medium text-secondary transition-all duration-200 group-hover:-translate-y-0.5 group-hover:text-primary active:translate-y-0"
-                        aria-label={`Open ${item.label}`}
+                        onClick={(e) => handleLinkInteraction(e, item)}
+                        className="group flex items-center justify-between rounded-xl bg-white/70 backdrop-blur-sm px-4 py-2.5 border border-neutral-100 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white hover:border-neutral-200/60 hover:shadow-md active:translate-y-0 cursor-pointer min-w-0"
                       >
-                        <ArrowUpRight size={22} />
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <span className="relative inline-flex size-9.5 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm border border-neutral-100/70">
+                            <img src={item.iconSrc} alt="" className="size-5 object-contain" />
+                            {item.iconOverlaySrc ? (
+                              <img src={item.iconOverlaySrc} alt="" className="absolute size-2.5 object-contain" />
+                            ) : null}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold tracking-wide text-neutral-700 transition-colors duration-200 group-hover:text-black truncate">{item.label}</p>
+                            {isCopied && (
+                              <span className="text-[10px] font-bold text-[#997dfa] block mt-0.5 animate-fade-in truncate">
+                                Copied!
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <span className="text-neutral-400 shrink-0 transition-all duration-200 group-hover:text-[#997dfa] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 ml-2">
+                          <ArrowUpRight size={16} />
+                        </span>
                       </a>
-                        );
-                      })()
-                    ) : (
-                      <span className="text-secondary/50"><ArrowUpRight size={22} /></span>
-                    )}
-                  </article>
-                ))}
-              </div>
-            </aside>
+                    );
+                  })}
+                </div>
+              </aside>
 
-            <article
-              ref={formCardRef}
-              data-animate="form"
-              className={`w-full max-w-[560px] rounded-[50px] bg-white p-8 shadow-[4px_4px_4px_0px_rgba(0,0,0,0.25)] transition-all duration-700 sm:p-9 lg:justify-self-end lg:self-start lg:p-[36px] ${
-                showFormCard ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
-              }`}
-            >
-              <div className="mb-8">
-                <div className="mb-6 flex items-center gap-2">
-                  <span className="inline-flex size-3 rounded-full bg-[#e66b64]" />
-                  <span className="inline-flex size-3 rounded-full bg-[#dfb343]" />
-                  <span className="inline-flex size-3 rounded-full bg-[#61c554]" />
+              {/* Right Column: Original "Send Message" Card Preserved from image_ed0fe7.png */}
+              <article
+                ref={formCardRef}
+                data-animate="form"
+                className={`w-full max-w-[560px] rounded-[50px] bg-white p-8 shadow-[4px_4px_4px_0px_rgba(0,0,0,0.25)] transition-all duration-700 sm:p-10 lg:justify-self-end lg:self-start lg:p-[44px] ${
+                  showFormCard ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+                }`}
+              >
+                <div className="mb-8">
+                  <div className="mb-6 flex items-center gap-2">
+                    <span className="inline-flex size-3 rounded-full bg-[#e66b64]" />
+                    <span className="inline-flex size-3 rounded-full bg-[#dfb343]" />
+                    <span className="inline-flex size-3 rounded-full bg-[#61c554]" />
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <span className="inline-flex size-[42px] items-center justify-center rounded-[20px] bg-primary text-white">
+                      <MessageCircle size={20} />
+                    </span>
+                    <h3 className="text-[20px] font-bold uppercase tracking-[0.2em] text-black">Send A Message</h3>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <span className="inline-flex size-[42px] items-center justify-center rounded-[20px] bg-primary text-white"><MessageCircle size={20} /></span>
-                  <h3 className="text-[20px] font-bold uppercase tracking-[0.2em] text-black">Send A Message</h3>
-                </div>
-              </div>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="block text-[12px] font-bold uppercase text-secondary">Identity</span>
+                      <input
+                        type="text"
+                        value={fullName}
+                        onChange={(event) => setFullName(event.target.value)}
+                        placeholder="Your Full Name"
+                        className="h-[39px] w-full rounded-[10px] border border-[#b4b4b4] bg-white px-3 text-[12px] font-bold text-secondary outline-none transition-all duration-200 hover:border-primary/60 focus:border-primary"
+                      />
+                    </label>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="block text-[12px] font-bold uppercase text-secondary">Identity</span>
+                    <label className="space-y-2">
+                      <span className="block text-[12px] font-bold uppercase text-secondary">Contact Email</span>
+                      <input
+                        type="email"
+                        value={contactEmail}
+                        onChange={(event) => setContactEmail(event.target.value)}
+                        placeholder="email@example.com"
+                        className="h-[39px] w-full rounded-[10px] border border-[#b4b4b4] bg-white px-3 text-[12px] font-bold text-secondary outline-none transition-all duration-200 hover:border-primary/60 focus:border-primary"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="block space-y-2">
+                    <span className="block text-[12px] font-bold uppercase text-secondary">Subject Of Interest</span>
                     <input
                       type="text"
-                      value={fullName}
-                      onChange={(event) => setFullName(event.target.value)}
-                      placeholder="Your Full Name"
-                      className="h-[39px] w-full rounded-[10px] border border-[#b4b4b4] bg-white px-3 text-[12px] font-bold text-secondary outline-none transition-all duration-200 hover:border-primary/60 focus:border-primary"
+                      value={subject}
+                      onChange={(event) => setSubject(event.target.value)}
+                      placeholder="e.g. System Redesign or Project Inquiry"
+                      className="h-[39px] w-full rounded-[10px] border border-[#b4b4b4] bg-white px-3 py-2 text-[12px] font-bold text-secondary outline-none transition-all duration-200 hover:border-primary/60 focus:border-primary"
                     />
                   </label>
 
-                  <label className="space-y-2">
-                    <span className="block text-[12px] font-bold uppercase text-secondary">Contact Email</span>
-                    <input
-                      type="email"
-                      value={contactEmail}
-                      onChange={(event) => setContactEmail(event.target.value)}
-                      placeholder="email@example.com"
-                      className="h-[39px] w-full rounded-[10px] border border-[#b4b4b4] bg-white px-3 text-[12px] font-bold text-secondary outline-none transition-all duration-200 hover:border-primary/60 focus:border-primary"
+                  <label className="mt-6 block space-y-2">
+                    <span className="block text-[12px] font-bold uppercase text-secondary">Message</span>
+                    <textarea
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
+                      placeholder="Briefly describe your vision........."
+                      className="h-[117px] w-full resize-none rounded-[30px] border border-[#b4b4b4] bg-white px-3 py-2 text-[12px] font-bold text-secondary outline-none transition-all duration-200 hover:border-primary/60 focus:border-primary"
                     />
                   </label>
-                </div>
 
-                <label className="block space-y-2">
-                  <span className="block text-[12px] font-bold uppercase text-secondary">Subject Of Interest</span>
-                  <input
-                    type="text"
-                    value={subject}
-                    onChange={(event) => setSubject(event.target.value)}
-                    placeholder="e.g. System Redesign or Project Inquiry"
-                    className="h-[39px] w-full rounded-[10px] border border-[#b4b4b4] bg-white px-3 py-2 text-[12px] font-bold text-secondary outline-none transition-all duration-200 hover:border-primary/60 focus:border-primary"
-                  />
-                </label>
+                  <button
+                    type="submit"
+                    disabled={submitState === "sending"}
+                    className="inline-flex h-[50px] w-full items-center justify-center rounded-[30px] bg-primary px-4 text-[14px] font-black text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submitState === "sending" ? "Sending..." : "Dispatch Message"}
+                  </button>
 
-                <label className="mt-6 block space-y-2">
-                  <span className="block text-[12px] font-bold uppercase text-secondary">Message</span>
-                  <textarea
-                    value={message}
-                    onChange={(event) => setMessage(event.target.value)}
-                    placeholder="Briefly describe your vision........."
-                    className="h-[117px] w-full resize-none rounded-[30px] border border-[#b4b4b4] bg-white px-3 py-2 text-[12px] font-bold text-secondary outline-none transition-all duration-200 hover:border-primary/60 focus:border-primary"
-                  />
-                </label>
+                  {submitState === "success" ? (
+                    <p className="text-center text-[12px] font-semibold text-primary">Message sent successfully.</p>
+                  ) : null}
 
-                <button
-                  type="submit"
-                  disabled={submitState === "sending"}
-                  className="inline-flex h-[50px] w-full items-center justify-center rounded-[30px] bg-primary px-4 text-[14px] font-black text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {submitState === "sending" ? "Sending..." : "Dispatch Message"}
-                </button>
+                  {submitState === "error" ? (
+                    <p className="text-center text-[12px] font-semibold text-[#B44F4F]">
+                      Unable to send your message. Please check your inputs and try again.
+                    </p>
+                  ) : null}
+                </form>
+              </article>
 
-                {submitState === "success" ? (
-                  <p className="text-center text-[12px] font-semibold text-primary">Message sent successfully.</p>
-                ) : null}
-
-                {submitState === "error" ? (
-                  <p className="text-center text-[12px] font-semibold text-[#B44F4F]">Unable to send your message. Please check your inputs and try again.</p>
-                ) : null}
-              </form>
-            </article>
+            </div>
           </div>
-        </div>
         </RevealOnScroll>
       </div>
     </section>

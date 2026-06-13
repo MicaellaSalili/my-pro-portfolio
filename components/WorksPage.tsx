@@ -410,6 +410,18 @@ export default function WorksPage({
     return Array.from(skillSet).sort((a, b) => a.localeCompare(b));
   }, [projects]);
 
+  useEffect(() => {
+    const styleTag = document.createElement("style");
+    styleTag.innerHTML = `
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    `;
+    document.head.appendChild(styleTag);
+    return () => {
+      document.head.removeChild(styleTag);
+    };
+  }, []);
+
   function toggleTechStack(skill: string) {
     setSelectedTechStacks((previous) => {
       if (previous.includes(skill)) {
@@ -455,12 +467,12 @@ export default function WorksPage({
     );
 
     return (
-      <div id={filterId} className={`flex flex-col rounded-[24px] border border-[rgba(163,134,255,0.18)] bg-white p-5 shadow-[4px_4px_0px_0px_rgba(128,94,255,0.1)] ${containerClassName}`}>
-        <div className="flex items-center justify-between">
-          <h3 className="text-[12px] font-bold uppercase tracking-[0.08em] text-black">Tech Stack</h3>
+      <div id={filterId} className={`flex flex-col rounded-2xl border border-neutral-100 bg-white p-5 shadow-xl shadow-neutral-100/40 ${containerClassName}`}>
+        <div className="flex items-center justify-between pb-2 border-b border-neutral-50">
+          <h3 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">Tech Stack</h3>
           {selectedTechStacks.length > 0 && (
-            <span className="inline-flex h-5 items-center justify-center rounded-full bg-primary/10 px-2 text-[11px] font-bold text-primary">
-              {selectedTechStacks.length} active
+            <span className="inline-flex h-5 items-center justify-center rounded-md bg-primary/10 px-2 text-[10px] font-bold text-primary">
+              {selectedTechStacks.length} Active
             </span>
           )}
         </div>
@@ -471,22 +483,22 @@ export default function WorksPage({
             placeholder="Search tech..."
             value={techSearchQuery}
             onChange={(e) => setTechSearchQuery(e.target.value)}
-            className="w-full rounded-[12px] border border-[#DCE0E8] bg-[#F9FAFB] px-3 py-2 text-[13px] font-medium text-black placeholder-[#9AA4B2] transition-all focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-lg border border-neutral-200/70 bg-neutral-50/50 px-3 py-2 text-xs font-medium text-neutral-800 placeholder-neutral-400 outline-none transition-all duration-200 hover:border-neutral-300 focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10"
           />
           {techSearchQuery && (
             <button
               type="button"
               onClick={() => setTechSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-[#9AA4B2] hover:text-black"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400 hover:text-neutral-900 transition-colors"
             >
               ✕
             </button>
           )}
         </div>
 
-        <div className="mt-4 max-h-[280px] overflow-y-auto space-y-1.5 pr-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary/20">
+        <div className="mt-3.5 max-h-[260px] overflow-y-auto space-y-1 pr-1 hide-scrollbar">
           {filteredTechOptions.length === 0 ? (
-            <p className="py-4 text-center text-[12px] font-medium text-secondary">
+            <p className="py-6 text-center text-xs font-medium text-neutral-400">
               No matching tags found.
             </p>
           ) : (
@@ -496,18 +508,18 @@ export default function WorksPage({
               return (
                 <label
                   key={`${filterId}-${skill}`}
-                  className={`flex cursor-pointer items-center justify-between rounded-[10px] px-2.5 py-2 transition-all duration-150 ${
+                  className={`flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-2 transition-all duration-200 ${
                     isChecked
                       ? "bg-primary/5 text-primary font-semibold"
-                      : "text-secondary hover:bg-[#F4F5F7] hover:text-black"
+                      : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 text-[13px]">
+                  <div className="flex items-center gap-3 text-xs font-medium">
                     <input
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleTechStack(skill)}
-                      className="h-4 w-4 rounded-[4px] border-[#DCE0E8] text-primary accent-primary transition-all focus:ring-0 focus:ring-offset-0"
+                      className="h-4 w-4 rounded border-neutral-300 text-primary accent-primary transition-all focus:ring-0 focus:ring-offset-0"
                     />
                     <span>{skill}</span>
                   </div>
@@ -517,14 +529,14 @@ export default function WorksPage({
           )}
         </div>
 
-        <div className="mt-4 flex items-center justify-between border-t border-[#F4F5F7] pt-3">
+        <div className="mt-4 flex items-center justify-between border-t border-neutral-50 pt-3">
           <button
             type="button"
             onClick={() => {
               setSelectedTechStacks([]);
               setTechSearchQuery("");
             }}
-            className="text-[11px] font-bold uppercase tracking-[0.06em] text-primary transition-all hover:text-primary/80 disabled:opacity-30"
+            className="text-[10px] font-bold uppercase tracking-wider text-primary transition-colors hover:text-primary/80 disabled:opacity-30 disabled:cursor-not-allowed"
             disabled={selectedTechStacks.length === 0}
           >
             Reset Section
@@ -539,9 +551,9 @@ export default function WorksPage({
                 setSelectedTechStacks([]);
                 setTechSearchQuery("");
               }}
-              className="text-[11px] font-semibold text-secondary hover:text-black"
+              className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider hover:text-neutral-800 transition-colors"
             >
-              Clear All Filters
+              Clear All
             </button>
           ) : null}
         </div>
@@ -550,39 +562,38 @@ export default function WorksPage({
   }
 
   return (
-    <section ref={pageRef} className="w-full bg-transparent px-5 py-6 lg:px-6">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-6 lg:flex-row lg:gap-8">
+    <section ref={pageRef} className="w-full bg-transparent px-6 pt-2 pb-12 lg:px-12 xl:px-20">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-8 lg:flex-row lg:gap-12">
         
-        {/* Category Left Sticky Selection Column */}
-        <aside className="hidden w-full max-w-[270px] shrink-0 self-start lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto pr-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="mb-6">
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              {projectTypeOptions.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setSelectedProjectType(type)}
-                  className={`inline-flex h-[30px] min-w-[60px] items-center justify-center rounded-[999px] border px-2 text-[9px] font-bold uppercase tracking-[0.04em] leading-none transition-all ${
-                    selectedProjectType === type
-                      ? "border-primary bg-primary text-white shadow-[0_6px_18px_rgba(128,94,255,0.35)]"
-                      : "border-[#DCE0E8] bg-transparent text-[#9AA4B2] hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary active:translate-y-0 active:scale-[0.98]"
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
+        {/* Left Category Selection Column Sidebar */}
+        <aside className="hidden w-full max-w-[240px] shrink-0 self-start lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] overflow-y-auto hide-scrollbar">
+          <div className="mb-5 bg-neutral-50/60 backdrop-blur-sm rounded-xl p-1.5 border border-neutral-200/50 flex items-center gap-1">
+            {projectTypeOptions.map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setSelectedProjectType(type)}
+                className={`flex-1 inline-flex h-7 items-center justify-center rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all duration-200 ${
+                  selectedProjectType === type
+                    ? "bg-primary text-white shadow-sm shadow-primary/20"
+                    : "text-neutral-500 hover:text-neutral-900 active:scale-95"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
           </div>
-          <ul className="space-y-2.5">
+          
+          <ul className="space-y-1.5">
             {categories.map((category) => (
-              <li key={category} className="h-[46px]">
+              <li key={category}>
                 <button
                   type="button"
                   onClick={() => setSelectedCategory(category)}
-                  className={`h-full w-full rounded-[999px] border px-5 text-left text-[15px] leading-none transition-all ${
+                  className={`h-10 w-full rounded-xl border px-4 text-left text-sm font-semibold transition-all duration-200 ${
                     selectedCategory === category
-                      ? "border-primary bg-primary text-white font-bold shadow-[0_4px_12px_rgba(128,94,255,0.25)]"
-                      : "border-[#DCE0E8] bg-transparent font-semibold text-secondary hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary active:translate-y-0 active:scale-[0.99]"
+                      ? "border-primary bg-primary text-white font-bold shadow-md shadow-primary/10 active:translate-y-[1px]"
+                      : "border-neutral-200/70 bg-transparent text-neutral-600 hover:border-primary/50 hover:text-primary active:scale-[0.98]"
                   }`}
                 >
                   {category}
@@ -598,15 +609,15 @@ export default function WorksPage({
             <button
               type="button"
               onClick={() => setIsMobileFilterOpen(true)}
-              className="inline-flex h-[44px] items-center gap-2 rounded-[12px] border border-primary bg-white px-4 text-[14px] font-semibold text-primary shadow-[0_6px_16px_rgba(128,94,255,0.2)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-primary bg-white px-4 text-xs font-bold text-primary shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
             >
-              <span className="text-[18px] leading-none">☰</span>
+              <span className="text-base leading-none">☰</span>
               Filters
             </button>
           </div>
 
           {hasFetchedProjects && filteredProjects.length === 0 ? (
-            <div className="flex min-h-[325px] items-center justify-center text-[24px] font-medium text-secondary">
+            <div className="flex min-h-[325px] items-center justify-center text-xl font-semibold text-neutral-400">
               No projects found.
             </div>
           ) : (
@@ -628,36 +639,36 @@ export default function WorksPage({
         </div>
 
         {/* Tech Stack Right Sidebar */}
-        <aside className="hidden w-full max-w-[220px] shrink-0 self-start lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+        <aside className="hidden w-full max-w-[220px] shrink-0 self-start lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto hide-scrollbar">
           {renderTechStackFilter("works-tech-stack-filter", "h-full")}
         </aside>
       </div>
 
       {/* Mobile Drawer Filter Layer */}
       {isMobileFilterOpen ? (
-        <div className="fixed inset-0 z-[80] bg-black/35 lg:hidden">
+        <div className="fixed inset-0 z-[80] bg-neutral-950/40 backdrop-blur-xs lg:hidden animate-fade-in">
           <button
             type="button"
             onClick={() => setIsMobileFilterOpen(false)}
-            className="h-full w-full"
+            className="h-full w-full cursor-default"
             aria-label="Close filters backdrop"
           />
-          <div className="absolute left-0 top-0 h-full w-full max-w-[340px] overflow-y-auto bg-white px-4 py-4 shadow-[10px_0_24px_rgba(15,24,51,0.2)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[16px] font-bold text-black">Filters</h3>
+          <div className="absolute left-0 top-0 h-full w-full max-w-[300px] overflow-y-auto bg-white p-5 shadow-2xl border-r border-neutral-100 animate-slide-in">
+            <div className="mb-5 flex items-center justify-between pb-2 border-b border-neutral-100">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400">Filters</h3>
               <button
                 type="button"
                 onClick={() => setIsMobileFilterOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-primary/30 text-[18px] text-primary"
+                className="inline-flex size-7 items-center justify-center rounded-lg border border-neutral-200 text-xs font-semibold text-neutral-500 active:scale-95"
                 aria-label="Close filters"
               >
                 ✕
               </button>
             </div>
 
-            <div className="mb-5">
-              <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-secondary">Project Type</p>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="mb-6">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">Project Type</p>
+              <div className="flex flex-wrap gap-1.5 bg-neutral-50 p-1 rounded-xl border border-neutral-200/60">
                 {projectTypeOptions.map((type) => (
                   <button
                     key={`mobile-${type}`}
@@ -666,10 +677,10 @@ export default function WorksPage({
                       setSelectedProjectType(type);
                       setIsMobileFilterOpen(false);
                     }}
-                    className={`inline-flex h-[30px] min-w-[60px] items-center justify-center rounded-[999px] border px-2 text-[9px] font-bold uppercase tracking-[0.04em] leading-none transition-all ${
+                    className={`flex-1 inline-flex h-7 items-center justify-center rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all ${
                       selectedProjectType === type
-                        ? "border-primary bg-primary text-white shadow-[0_6px_18px_rgba(128,94,255,0.35)]"
-                        : "border-[#DCE0E8] bg-transparent text-[#9AA4B2]"
+                        ? "bg-primary text-white shadow-sm"
+                        : "text-neutral-500 hover:text-neutral-900"
                     }`}
                   >
                     {type}
@@ -678,9 +689,9 @@ export default function WorksPage({
               </div>
             </div>
 
-            <div className="mb-5">
-              <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-secondary">Category</p>
-              <ul className="space-y-2">
+            <div className="mb-6">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">Category</p>
+              <ul className="space-y-1.5">
                 {categories.map((category) => (
                   <li key={`mobile-${category}`}>
                     <button
@@ -689,10 +700,10 @@ export default function WorksPage({
                         setSelectedCategory(category);
                         setIsMobileFilterOpen(false);
                       }}
-                      className={`h-[42px] w-full rounded-[999px] border px-4 text-left text-[14px] leading-none transition-all ${
+                      className={`h-9 w-full rounded-xl border px-4 text-left text-xs font-semibold transition-all ${
                         selectedCategory === category
-                          ? "border-primary bg-primary text-white font-bold shadow-[0_6px_18px_rgba(128,94,255,0.35)]"
-                          : "border-[#DCE0E8] bg-transparent font-semibold text-secondary"
+                          ? "border-primary bg-primary text-white font-bold shadow-sm"
+                          : "border-neutral-200/60 bg-transparent text-neutral-600"
                       }`}
                     >
                       {category}
@@ -702,7 +713,7 @@ export default function WorksPage({
               </ul>
             </div>
 
-            {renderTechStackFilter("works-tech-stack-filter-mobile", "rounded-[14px] bg-[#f7f7f8]")}
+            {renderTechStackFilter("works-tech-stack-filter-mobile", "rounded-2xl bg-neutral-50/50 border border-neutral-100 shadow-none")}
           </div>
         </div>
       ) : null}

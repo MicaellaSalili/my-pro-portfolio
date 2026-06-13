@@ -298,8 +298,8 @@ function normalizeToolCategory(value: string | null) {
 
 function SectionBadge({ label }: { label: string }) {
   return (
-    <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-[color-mix(in_srgb,var(--color-primary)_18%,white)] px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-primary">
-      <span className="text-[13px]">◔</span>
+    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[color-mix(in_srgb,var(--color-primary)_12%,white)] px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary border border-primary/10">
+      <span className="text-[14px] leading-none">◔</span>
       <span>{label}</span>
     </div>
   );
@@ -308,6 +308,8 @@ function SectionBadge({ label }: { label: string }) {
 export default function AboutPage() {
   const pageContext = useContext(PageContext);
   const pageRef = useRef<HTMLElement | null>(null);
+  const scrollTabsRef = useRef<HTMLDivElement | null>(null);
+
   const [cachedPageData] = useState<AboutPageCacheData | null>(() => {
     const initialData = aboutPageMemoryCache || readAboutPageCache();
     if (initialData) {
@@ -323,8 +325,6 @@ export default function AboutPage() {
   const [specializationList, setSpecializationList] = useState<SpecializationData[]>(cachedPageData?.specializationList || []);
   const [milestones, setMilestones] = useState<MilestoneData[]>(cachedPageData?.milestones || []);
   const [activeSidebarItem, setActiveSidebarItem] = useState(sidebarItems[0].id);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [activeProofUrl, setActiveProofUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let isUnmounted = false;
@@ -362,6 +362,8 @@ export default function AboutPage() {
 
   const aboutSummary = profile?.about_summary?.trim() || "";
   const displayAboutSummary = aboutSummary || "No about summary yet.";
+  
+  // Cleanly split lines down by newline intervals
   const aboutParagraphs = (aboutSummary || "")
     .split(/\n\s*\n/g)
     .map((paragraph) => paragraph.trim())
@@ -398,6 +400,13 @@ export default function AboutPage() {
 
     setActiveSidebarItem(sectionId);
     sectionElement.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+    
+    const activeBtn = document.getElementById(`tab-${sectionId}`);
+    if (activeBtn && scrollTabsRef.current) {
+      const container = scrollTabsRef.current;
+      const leftOffset = activeBtn.offsetLeft - container.offsetWidth / 2 + activeBtn.offsetWidth / 2;
+      container.scrollTo({ left: leftOffset, behavior: "smooth" });
+    }
     return true;
   }
 
@@ -442,7 +451,15 @@ export default function AboutPage() {
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
 
         if (visibleEntries.length > 0) {
-          setActiveSidebarItem(visibleEntries[0].target.id);
+          const matchingId = visibleEntries[0].target.id;
+          setActiveSidebarItem(matchingId);
+
+          const activeBtn = document.getElementById(`tab-${matchingId}`);
+          if (activeBtn && scrollTabsRef.current) {
+            const container = scrollTabsRef.current;
+            const leftOffset = activeBtn.offsetLeft - container.offsetWidth / 2 + activeBtn.offsetWidth / 2;
+            container.scrollLeft = leftOffset;
+          }
         }
       },
       {
@@ -505,28 +522,53 @@ export default function AboutPage() {
   }, [experienceList.length, certificationList.length, groupedTools.length, specializationList.length]);
 
   useEffect(() => {
-    if (!activeProofUrl) {
-      return;
-    }
+    const rootElement = pageRef.current;
+    if (!rootElement) return;
 
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setActiveProofUrl(null);
-      }
-    };
-
-    window.addEventListener("keydown", handleEscape);
+    const styleTag = document.createElement("style");
+    styleTag.innerHTML = `
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    `;
+    document.head.appendChild(styleTag);
     return () => {
-      window.removeEventListener("keydown", handleEscape);
+      document.head.removeChild(styleTag);
     };
-  }, [activeProofUrl]);
+  }, []);
 
   return (
-    <section ref={pageRef} className="w-full bg-transparent px-5 py-6 lg:px-6">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-6 lg:flex-row lg:gap-10">
-        <aside data-about-reveal className="hidden w-full max-w-[270px] shrink-0 self-start translate-y-5 opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block">
-          <h2 className="mb-6 text-[22px] font-bold leading-none text-black">About</h2>
-          <ul className="space-y-3">
+    <section ref={pageRef} className="w-full bg-transparent px-4 pt-1 pb-12 sm:px-6 lg:px-12 xl:px-20">
+      
+      {/* Mobile Swipe Segment Tabs */}
+      <div className="sticky top-0 z-50 -mx-4 mb-6 bg-white/80 backdrop-blur-md border-b border-neutral-100 px-4 py-2.5 lg:hidden">
+        <div 
+          ref={scrollTabsRef}
+          className="hide-scrollbar flex items-center gap-2 overflow-x-auto scroll-smooth"
+        >
+          {sidebarItems.map((item) => (
+            <button
+              key={`tab-item-${item.id}`}
+              id={`tab-${item.id}`}
+              type="button"
+              onClick={() => goToSection(item.id, true)}
+              className={`h-9 shrink-0 rounded-full px-4 text-xs font-bold tracking-wide transition-all duration-200 ${
+                activeSidebarItem === item.id
+                  ? "bg-primary text-white shadow-sm shadow-primary/20"
+                  : "bg-neutral-50 border border-neutral-200/50 text-neutral-600 hover:border-neutral-300"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-12 lg:flex-row lg:gap-16">
+        
+        {/* Desktop Sticky Sidebar */}
+        <aside data-about-reveal className="hidden w-full max-w-[240px] shrink-0 self-start translate-y-5 opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block">
+          <h2 className="mb-6 text-2xl font-extrabold tracking-tight text-neutral-900">About</h2>
+          <ul className="space-y-2">
             {sidebarItems.map((item) => (
               <li key={item.id}>
                 <button
@@ -534,10 +576,10 @@ export default function AboutPage() {
                   onClick={() => {
                     goToSection(item.id, true);
                   }}
-                  className={`h-[50px] w-full rounded-[999px] border px-4 text-left text-[20px] leading-none transition-all ${
+                  className={`h-11 w-full rounded-xl border px-4 text-left text-sm transition-all duration-200 ${
                     activeSidebarItem === item.id
-                      ? "border-primary bg-primary text-white font-bold shadow-[0_6px_18px_rgba(128,94,255,0.35)] active:translate-y-[1px] active:scale-[0.99]"
-                      : "border-[#DCE0E8] bg-transparent font-semibold text-secondary hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary active:translate-y-[1px] active:scale-[0.98]"
+                      ? "border-primary bg-primary text-white font-bold shadow-md shadow-primary/20 active:translate-y-[1px]"
+                      : "border-neutral-200/70 bg-transparent font-semibold text-neutral-600 hover:border-primary/50 hover:text-primary active:scale-[0.98]"
                   }`}
                 >
                   {item.label}
@@ -547,93 +589,88 @@ export default function AboutPage() {
           </ul>
         </aside>
 
-        <div className="w-full min-w-0 max-w-[1098px] space-y-8 md:space-y-10">
-          <div className="flex items-center justify-start lg:hidden">
-            <button
-              type="button"
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="inline-flex h-[44px] items-center gap-2 rounded-[12px] border border-primary bg-white px-4 text-[14px] font-semibold text-primary shadow-[0_6px_16px_rgba(128,94,255,0.2)] transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
-            >
-              <span className="text-[18px] leading-none">☰</span>
-              Sections
-            </button>
-          </div>
+        {/* Content Body Area */}
+        <div className="w-full min-w-0 max-w-[1098px] space-y-12 md:space-y-16">
 
-          <section id="profile" data-about-reveal className="scroll-mt-28 flex translate-y-5 flex-col gap-6 opacity-0 transition-all duration-700 ease-out lg:flex-row lg:justify-between">
-            <div className="max-w-[700px]">
+          {/* Profile Section with text-justify applied */}
+          <section id="profile" data-about-reveal className="scroll-mt-24 flex translate-y-5 flex-col gap-8 opacity-0 transition-all duration-700 ease-out lg:flex-row lg:justify-between lg:items-start">
+            <div className="max-w-[700px] flex-1">
               <SectionBadge label="About Me" />
               {aboutParagraphs.length === 0 ? (
-                <p className="mt-6 max-w-[650px] text-[17px] font-medium leading-[1.4] text-secondary transition-opacity duration-300 sm:text-[20px] sm:leading-[1.35]">
+                <p className="mt-4 text-base font-medium leading-relaxed text-neutral-600 sm:text-lg text-justify">
                   {displayAboutSummary}
                 </p>
               ) : (
-                <div className="mt-6 max-w-[650px] space-y-4 text-[17px] font-medium leading-[1.4] text-secondary transition-opacity duration-300 sm:text-[20px] sm:leading-[1.35]">
+                <div className="mt-4 space-y-4 text-base font-medium leading-relaxed text-neutral-600 sm:text-lg text-justify">
                   {aboutParagraphs.map((paragraph, index) => (
                     <p key={`${paragraph.slice(0, 20)}-${index}`}>{paragraph}</p>
                   ))}
                 </div>
               )}
 
-              <div className="mt-8 flex flex-wrap gap-4">
+              <div className="mt-8 flex flex-col sm:flex-row gap-3">
                 <a
                   href={profile?.resume_download_url || ""}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-[48px] items-center gap-2 rounded-[24px] bg-black px-5 text-[14px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95 active:translate-y-[1px] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-neutral-900 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-neutral-800 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 shadow-sm"
                 >
-                  <Download size={16} /> Download Resume
+                  <Download size={15} /> Download Resume
                 </a>
                 <a
                   href={profile?.cv_download_url || ""}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-[48px] items-center gap-2 rounded-[24px] border border-primary bg-white px-6 text-[14px] font-semibold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-[color-mix(in_srgb,var(--color-primary)_10%,white)] active:translate-y-[1px] active:scale-[0.98]"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-primary bg-white px-5 text-sm font-bold text-primary transition-all duration-200 hover:bg-primary/5 active:scale-[0.98] shadow-sm"
                 >
-                  <Download size={16} /> Download CV
+                  <Download size={15} /> Download CV
                 </a>
               </div>
             </div>
 
-            <div className="flex w-full max-w-full flex-col gap-4 pt-1 sm:max-w-[300px] sm:gap-6 sm:pt-5">
+            {/* Milestones Panel */}
+            <div className="w-full grid grid-cols-2 gap-3.5 lg:grid-cols-1 lg:max-w-[260px] shrink-0">
               {milestones.length === 0 ? (
-                <article className="rounded-[10px] border border-primary bg-white px-4 py-5 shadow-[8px_8px_0px_0px_var(--color-primary)]">
-                  <p className="text-[14px] font-medium text-secondary">No milestones yet.</p>
+                <article className="col-span-2 lg:col-span-1 rounded-2xl border border-primary bg-white px-5 py-4 shadow-[4px_4px_0px_0px_var(--color-primary)]">
+                  <p className="text-xs font-medium text-neutral-500">No milestones yet.</p>
                 </article>
               ) : (
                 milestones.map((item, index) => (
                   <article
                     key={`${item.label || "milestone"}-${item.value || "value"}-${index}`}
-                    className="rounded-[10px] border border-primary bg-white px-4 py-5 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99]"
+                    className="rounded-2xl border border-primary bg-white px-5 py-4 shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_var(--color-primary)] active:translate-y-0"
                   >
-                    <p className="text-[12px] font-semibold uppercase text-[#D3D3D3]">{item.label || "Milestone"}</p>
-                    <p className="mt-1 text-[36px] font-bold leading-none text-primary">{item.value || "0"}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 truncate">{item.label || "Milestone"}</p>
+                    <p className="mt-1 text-3xl font-extrabold leading-none text-primary">{item.value || "0"}</p>
                   </article>
                 ))
               )}
             </div>
           </section>
 
-          <section id="credentials" data-about-reveal className="scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
+          {/* Credentials Section */}
+          <section id="credentials" data-about-reveal className="scroll-mt-24 translate-y-5 opacity-0 transition-all duration-700 ease-out">
             <SectionBadge label="Credentials" />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1fr]">
-              <article className="rounded-[24px] bg-white p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)]">
-                <h3 className="text-[20px] font-bold text-black">Education</h3>
-                <div className="mt-6 rounded-[14px] bg-[#F7F7F8] p-4">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mt-4">
+              
+              <article className="rounded-[32px] border border-neutral-100 bg-white p-6 shadow-sm shadow-neutral-100">
+                <h3 className="text-lg font-bold text-neutral-900 tracking-tight">Education</h3>
+                <div className="mt-4 space-y-4 rounded-2xl bg-neutral-50/50 p-4 border border-neutral-100/50">
                   {education.length === 0 ? (
-                    <p className="text-[14px] text-secondary">No education data yet.</p>
+                    <p className="text-xs text-neutral-500">No education data yet.</p>
                   ) : education.map((item, index) => (
                     <div
                       key={`${item.degree || "degree"}-${item.school || "school"}-${item.period || "period"}-${index}`}
-                      className="mb-4 last:mb-0"
+                      className="border-b border-neutral-100 pb-3 last:border-0 last:pb-0"
                     >
-                      {item.degree ? <p className="text-[16px] font-semibold text-black">{item.degree}</p> : null}
+                      {item.degree ? <p className="text-sm font-bold text-neutral-800 leading-snug">{item.degree}</p> : null}
                       {item.school || item.period ? (
-                        <p className="mt-1 text-[14px] text-secondary">
+                        <p className="mt-1 text-xs font-medium text-neutral-500">
                           {item.school || ""} {item.period ? `(${item.period})` : ""}
                         </p>
                       ) : null}
                       {item.elective ? (
-                        <span className="mt-3 inline-block rounded-[6px] bg-[color-mix(in_srgb,var(--color-primary)_20%,white)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.06em] text-primary">
+                        <span className="mt-2 inline-block rounded-md bg-[color-mix(in_srgb,var(--color-primary)_12%,white)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/5">
                           {`${item.elective}`}
                         </span>
                       ) : null}
@@ -642,16 +679,16 @@ export default function AboutPage() {
                 </div>
               </article>
 
-              <article className="rounded-[24px] bg-white p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)]">
-                <h3 className="text-[20px] font-bold text-black">Certifications</h3>
-                <div className="mt-6 space-y-3">
+              <article className="rounded-[32px] border border-neutral-100 bg-white p-6 shadow-sm shadow-neutral-100">
+                <h3 className="text-lg font-bold text-neutral-900 tracking-tight">Certifications</h3>
+                <div className="mt-4 space-y-2.5">
                   {certificationList.length === 0 ? (
-                    <p className="text-[14px] text-secondary">No certifications yet.</p>
+                    <p className="text-xs text-neutral-500">No certifications yet.</p>
                   ) : certificationList.map((item, index) => (
-                    <div key={`${item.name}-${index}`} className="flex items-center justify-between rounded-[18px] bg-[#F7F7F8] px-4 py-3 transition-all duration-200 hover:-translate-y-0.5">
-                      <div>
-                        <p className="text-[14px] font-bold text-black">{item.name || ""}</p>
-                        <p className="text-[12px] font-medium uppercase text-secondary">
+                    <div key={`${item.name}-${index}`} className="flex items-center justify-between gap-4 rounded-xl bg-neutral-50/50 p-3 border border-neutral-100/50 transition-all duration-200 hover:border-neutral-200/60">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-neutral-800 truncate">{item.name || ""}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mt-0.5 truncate">
                           {(item.issuer || "").toUpperCase()}{item.date_earned ? ` - ${item.date_earned}` : ""}
                         </p>
                       </div>
@@ -660,12 +697,12 @@ export default function AboutPage() {
                           href={item.credential_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-400 text-white transition-all duration-200 hover:bg-violet-500 active:scale-[0.96]"
+                          className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-white transition-all duration-200 hover:bg-neutral-800 active:scale-95 shadow-sm shadow-neutral-900/10"
                         >
-                          <ArrowUpRight size={16} />
+                          <ArrowUpRight size={14} />
                         </a>
                       ) : (
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-400 text-white"><ArrowUpRight size={16} /></span>
+                        <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-neutral-200 text-neutral-400"><ArrowUpRight size={14} /></span>
                       )}
                     </div>
                   ))}
@@ -674,67 +711,66 @@ export default function AboutPage() {
             </div>
           </section>
 
-          <section id="experience" data-about-reveal className="scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
+          {/* Experience Section */}
+          <section id="experience" data-about-reveal className="scroll-mt-24 translate-y-5 opacity-0 transition-all duration-700 ease-out">
             <SectionBadge label="My Experience" />
-            <div className="space-y-5">
+            <div className="space-y-4 mt-4">
               {experienceList.length === 0 ? (
-                <article className="rounded-[14px] bg-white p-5">
-                  <p className="text-[14px] text-secondary">No experience data yet.</p>
+                <article className="rounded-xl bg-white p-5 border border-neutral-100">
+                  <p className="text-xs text-neutral-500">No experience data yet.</p>
                 </article>
               ) : experienceList.map((item, index) => (
                 <article
                   key={item.id}
                   style={{ transitionDelay: `${Math.min(index, 6) * 50}ms` }}
-                  className="rounded-[14px] bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)] active:translate-y-0"
+                  className="rounded-2xl border border-primary bg-white p-5 shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_var(--color-primary)] active:translate-y-0"
                 >
-                  <div className="mb-3 flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4">
+                  <div className="mb-3 flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4 w-full">
                     <div>
-                      {item.role ? <p className="text-[20px] font-bold text-black">{item.role}</p> : null}
-                      {item.company ? <p className="text-[20px] font-medium text-primary">{item.company}</p> : null}
+                      {item.role ? <p className="text-base font-bold text-neutral-900 tracking-tight">{item.role}</p> : null}
+                      {item.company ? <p className="text-sm font-semibold text-primary mt-0.5">{item.company}</p> : null}
                     </div>
                     {(item.location || item.date) ? (
-                      <p className="text-[12px] font-medium uppercase text-secondary">{item.location}{item.location && item.date ? " | " : ""}{item.date}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 sm:text-right pt-0.5">
+                        {item.location}{item.location && item.date ? " | " : ""}{item.date}
+                      </p>
                     ) : null}
                   </div>
-                  {item.summary ? <p className="text-[14px] font-medium leading-relaxed text-secondary">{item.summary}</p> : null}
+                  {item.summary ? <p className="text-sm font-medium leading-relaxed text-neutral-500 text-justify">{item.summary}</p> : null}
                   {item.skills.length > 0 ? (
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <div className="mt-4 flex flex-wrap items-center gap-1.5">
                       {item.skills.map((skill, index) => (
-                      <SkillTag
-                        onClick={() => handleSkillTagClick(skill)}
-                        key={`${item.id}-${skill}-${index}`}
-                        label={skill}
-                      />
-                    ))}
+                        <SkillTag
+                          onClick={() => handleSkillTagClick(skill)}
+                          key={`${item.id}-${skill}-${index}`}
+                          label={skill}
+                        />
+                      ))}
                     </div>
-                  ) : null}
-                  {item.proofUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => setActiveProofUrl(item.proofUrl)}
-                      className="mt-4 inline-flex h-[36px] items-center rounded-[999px] border border-primary bg-white px-4 text-[12px] font-semibold uppercase tracking-[0.08em] text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-[color-mix(in_srgb,var(--color-primary)_10%,white)] active:translate-y-[1px] active:scale-[0.97]"
-                    >
-                      View
-                    </button>
                   ) : null}
                 </article>
               ))}
             </div>
           </section>
 
-          <section id="tech-stacks" data-about-reveal className="scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
+          {/* Tech Stacks Section */}
+          <section id="tech-stacks" data-about-reveal className="scroll-mt-24 translate-y-5 opacity-0 transition-all duration-700 ease-out">
             <SectionBadge label="What I Use" />
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
               {groupedTools.map((group) => (
                 <article
                   key={group.title}
-                  className={`rounded-[24px] p-5 transition-all duration-200 hover:-translate-y-1 ${group.dark ? "bg-[#17002F] hover:shadow-[6px_6px_0px_0px_var(--color-primary)]" : "bg-white hover:shadow-[6px_6px_0px_0px_var(--color-primary)]"}`}
+                  className={`rounded-2xl p-5 border transition-all duration-200 hover:-translate-y-0.5 ${
+                    group.dark 
+                      ? "bg-neutral-900 border-neutral-900 shadow-md shadow-neutral-950/10 hover:shadow-lg hover:shadow-neutral-950/20" 
+                      : "bg-white border-neutral-100 shadow-sm hover:shadow-md"
+                  }`}
                 >
-                  <h4 className={`text-[12px] font-semibold uppercase tracking-[0.18em] ${group.dark ? "text-white" : "text-primary"}`}>
+                  <h4 className={`text-[10px] font-bold uppercase tracking-wider ${group.dark ? "text-neutral-400" : "text-primary"}`}>
                     {group.title}
                   </h4>
                   {group.items.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-3 flex flex-wrap gap-1.5">
                       {group.items.map((tool) => (
                         <SkillTag
                           onClick={() => handleSkillTagClick(tool)}
@@ -744,40 +780,46 @@ export default function AboutPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className={`mt-3 text-[12px] ${group.dark ? "text-white/70" : "text-secondary"}`}>No tools in this category yet.</p>
+                    <p className={`mt-3 text-xs font-medium ${group.dark ? "text-neutral-500" : "text-neutral-400"}`}>
+                      No tools listed.
+                    </p>
                   )}
                 </article>
               ))}
             </div>
           </section>
 
-          <section id="specializations" data-about-reveal className="scroll-mt-28 translate-y-5 opacity-0 transition-all duration-700 ease-out">
+          {/* Specializations Section */}
+          <section id="specializations" data-about-reveal className="scroll-mt-24 translate-y-5 opacity-0 transition-all duration-700 ease-out">
             <SectionBadge label="What I Can Offer" />
-            <h3 className="mb-4 text-center text-[24px] font-medium text-black">Core Specializations</h3>
+            <h3 className="text-xl font-bold tracking-tight text-neutral-900 mb-6 mt-2">Core Specializations</h3>
             {specializationList.length === 0 ? (
-              <article className="rounded-[14px] bg-white p-5">
-                <p className="text-[14px] text-secondary">No specializations yet.</p>
+              <article className="rounded-xl bg-white p-5 border border-neutral-100">
+                <p className="text-xs text-neutral-500">No specializations yet.</p>
               </article>
             ) : (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {specializationList.map((item, index) => (
                   <article
                     key={item.id || `${item.title}-${index}`}
-                    className="rounded-[14px] border border-primary bg-white p-4 shadow-[6px_6px_0px_0px_var(--color-primary)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)] active:translate-y-0"
+                    className="rounded-2xl border border-primary bg-white p-5 shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_var(--color-primary)] active:translate-y-0 flex flex-col justify-between"
                   >
-                    <div className="mb-3 inline-flex size-8 items-center justify-center rounded-[8px] bg-primary/15 text-primary">
-                      ◻
+                    <div>
+                      <div className="mb-4 inline-flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-sm">
+                        ✦
+                      </div>
+                      <h4 className="text-sm font-bold text-neutral-900 tracking-tight">{item.title}</h4>
+                      <p className="mt-2 text-xs leading-relaxed text-neutral-500 font-medium text-justify">{item.description}</p>
                     </div>
-                    <h4 className="text-[16px] font-medium text-black">{item.title}</h4>
-                    <p className="mt-2 text-[12px] leading-relaxed text-secondary">{item.description}</p>
+                    
                     <button
                       type="button"
                       onClick={() => {
                         pageContext?.setCurrentPage("works");
                       }}
-                      className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-primary transition-all duration-200 hover:translate-x-0.5 hover:text-primary/80 active:translate-x-[1px] active:scale-[0.97]"
+                      className="mt-5 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary transition-all duration-200 hover:translate-x-0.5"
                     >
-                      View Related Works <ArrowUpRight size={12} />
+                      Related Works <ArrowUpRight size={12} />
                     </button>
                   </article>
                 ))}
@@ -785,91 +827,7 @@ export default function AboutPage() {
             )}
           </section>
         </div>
-        </div>
-
-      {isMobileSidebarOpen ? (
-        <div className="fixed inset-0 z-[80] bg-black/35 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setIsMobileSidebarOpen(false)}
-            className="h-full w-full"
-            aria-label="Close sections backdrop"
-          />
-          <div className="absolute left-0 top-0 h-full w-full max-w-[320px] overflow-y-auto bg-white px-4 py-4 shadow-[10px_0_24px_rgba(15,24,51,0.2)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[16px] font-bold text-black">About Sections</h3>
-              <button
-                type="button"
-                onClick={() => setIsMobileSidebarOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-primary/30 text-[18px] text-primary"
-                aria-label="Close sections"
-              >
-                ✕
-              </button>
-            </div>
-
-            <ul className="space-y-2">
-              {sidebarItems.map((item) => (
-                <li key={`mobile-${item.id}`}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      goToSection(item.id, true);
-                      setIsMobileSidebarOpen(false);
-                    }}
-                    className={`h-[42px] w-full rounded-[999px] border px-4 text-left text-[14px] leading-none transition-all ${
-                      activeSidebarItem === item.id
-                        ? "border-primary bg-primary font-bold text-white shadow-[0_6px_18px_rgba(128,94,255,0.35)] active:translate-y-[1px] active:scale-[0.99]"
-                        : "border-[#DCE0E8] bg-transparent font-semibold text-secondary active:translate-y-[1px] active:scale-[0.98]"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      ) : null}
-
-      {activeProofUrl ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Experience proof preview"
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 px-4"
-          onClick={() => setActiveProofUrl(null)}
-        >
-          <div
-            className="relative w-full max-w-[920px] overflow-hidden rounded-[16px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.25)]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-[#ECECF2] px-4 py-3">
-              <h3 className="text-[14px] font-semibold uppercase tracking-[0.06em] text-secondary">
-               Preview
-              </h3>
-              <button
-                type="button"
-                onClick={() => setActiveProofUrl(null)}
-                className="inline-flex h-[32px] w-[32px] items-center justify-center rounded-full border border-[#E2E4EA] text-secondary transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--color-primary)_10%,white)] hover:text-primary active:scale-[0.94]"
-                aria-label="Close proof preview"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="relative h-[65vh] min-h-[360px] bg-[#F7F7F8]">
-              <img
-                src={activeProofUrl}
-                alt="Experience proof"
-                className="h-full w-full object-contain select-none"
-                draggable={false}
-                onContextMenu={(event) => event.preventDefault()}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      </div>
     </section>
   );
 }

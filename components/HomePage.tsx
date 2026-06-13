@@ -26,7 +26,7 @@ interface ProjectData {
     tech_stack?: {
       skill_name?: string | null;
     } | null;
-  }[];
+   }[];
 }
 
 interface MilestoneData {
@@ -157,6 +157,7 @@ function HomeHeroSection({
   profile: FooterProfileData | null;
 }) {
   const [isVisible, setIsVisible] = useState(false);
+  const [activeTooltipLabel, setActiveTooltipLabel] = useState<string | null>(null);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => setIsVisible(true), 40);
@@ -167,21 +168,70 @@ function HomeHeroSection({
     ? `viber://chat?number=${encodeURIComponent(profile.viber_number)}`
     : "";
 
-  const socialLinks = [
-    { href: profile?.cv_download_url, label: "CV", type: "image" as const, src: imgHeroProfile },
-    { href: profile?.github_url, label: "GitHub", type: "image" as const, src: imgHeroGithub },
-    { href: profile?.linkedin_url, label: "LinkedIn", type: "image" as const, src: imgHeroLinkedin },
-    {
-      href: profile?.email ? `mailto:${profile.email}` : "",
-      label: "Email",
-      type: "email" as const,
-      src: imgHeroEmail,
-      srcOverlay: imgHeroEmailOverlay,
-    },
-    { href: viberLink, label: "Viber", type: "image" as const, src: imgHeroViber },
-    { href: profile?.facebook_url, label: "Facebook", type: "image" as const, src: imgHeroFacebook },
-    { href: profile?.instagram_url, label: "Instagram", type: "image" as const, src: imgHeroInstagram },
-  ];
+  const socialLinks = useMemo(() => {
+    return [
+      { id: "cv", href: profile?.cv_download_url, label: "CV", type: "image" as const, src: imgHeroProfile },
+      { id: "github", href: profile?.github_url, label: "GitHub", type: "image" as const, src: imgHeroGithub },
+      { id: "linkedin", href: profile?.linkedin_url, label: "LinkedIn", type: "image" as const, src: imgHeroLinkedin },
+      {
+        id: "email",
+        href: profile?.email ? `mailto:${profile.email}` : "",
+        label: "Email",
+        type: "email" as const,
+        src: imgHeroEmail,
+        srcOverlay: imgHeroEmailOverlay,
+        rawValue: profile?.email?.trim() || "",
+      },
+      { 
+        id: "mobile", 
+        href: viberLink, 
+        label: "Viber", 
+        type: "image" as const, 
+        src: imgHeroViber,
+        rawValue: profile?.viber_number?.trim() || "",
+      },
+      { id: "facebook", href: profile?.facebook_url, label: "Facebook", type: "image" as const, src: imgHeroFacebook },
+      { id: "instagram", href: profile?.instagram_url, label: "Instagram", type: "image" as const, src: imgHeroInstagram },
+    ];
+  }, [profile, viberLink]);
+
+  const handleLinkInteraction = (e: React.MouseEvent<HTMLAnchorElement>, item: typeof socialLinks[number]) => {
+    if (!item.href) {
+      e.preventDefault();
+      return;
+    }
+
+    if (item.id === "email" || item.id === "mobile") {
+      if (item.rawValue) {
+        // Modern Clipboard API approach (Requires HTTPS / Secure environments)
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(item.rawValue)
+            .then(() => {
+              setActiveTooltipLabel(`${item.label} copied!`);
+              setTimeout(() => setActiveTooltipLabel(null), 2500);
+            })
+            .catch(() => {});
+        } else {
+          // Legacy HTTP safe fallback (Ensures zero errors over standard local IP/localhost addresses)
+          const textArea = document.createElement("textarea");
+          textArea.value = item.rawValue;
+          textArea.style.position = "fixed";
+          textArea.style.opacity = "0";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand("copy");
+            setActiveTooltipLabel(`${item.label} copied!`);
+            setTimeout(() => setActiveTooltipLabel(null), 2500);
+          } catch (err) {
+            // Failed fallback silently
+          }
+          document.body.removeChild(textArea);
+        }
+      }
+    }
+  };
 
   return (
     <section className="w-full px-5 pb-16 pt-8 sm:px-6 md:px-10 md:pb-20 lg:px-[70px] lg:pb-28 lg:pt-12">
@@ -221,50 +271,59 @@ function HomeHeroSection({
             {profile?.hero_sub_headline}
           </p>
 
-          <div
-            className="flex w-full flex-wrap items-center justify-center bg-transparent p-0 md:justify-start"
-            style={{ gap: "clamp(4px, 2vw, 12px)" }}
-          >
-            {socialLinks.map((item) => (
-              <a
-                key={item.label}
-                href={item.href || "#"}
-                target={item.href && !String(item.href).startsWith("mailto:") && !String(item.href).startsWith("viber:") ? "_blank" : undefined}
-                rel={item.href && !String(item.href).startsWith("mailto:") && !String(item.href).startsWith("viber:") ? "noreferrer" : undefined}
-                aria-label={item.label}
-                onClick={(event) => {
-                  if (!item.href) {
-                    event.preventDefault();
-                  }
-                }}
-                className="relative flex flex-shrink-0 items-center justify-center rounded-full transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-110 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-primary/40 active:scale-95"
-                style={{
-                  width: "clamp(32px, 9vw, 44px)",
-                  height: "clamp(32px, 9vw, 44px)",
-                }}
-              >
-                <img
-                  src={item.src}
-                  alt=""
-                  className="object-contain"
-                  style={{
-                    width: "clamp(22px, 6vw, 30px)",
-                    height: "clamp(22px, 6vw, 30px)",
-                  }}
-                />
-                {item.type === "email" && item.srcOverlay ? (
-                  <img
-                    src={item.srcOverlay}
-                    alt=""
-                    className="pointer-events-none absolute object-contain"
+          <div className="flex flex-col items-center md:items-start gap-1 w-full min-h-[50px]">
+            {activeTooltipLabel && (
+              <span className="text-xs font-bold text-[#805eff] animate-fade-in mb-1">
+                {activeTooltipLabel}
+              </span>
+            )}
+            
+            <div
+              className="flex w-full flex-wrap items-center justify-center bg-transparent p-0 md:justify-start"
+              style={{ gap: "clamp(4px, 2vw, 12px)" }}
+            >
+              {socialLinks.map((item) => {
+                const isAppProtocol =
+                  item.href && (item.href.startsWith("mailto:") || item.href.startsWith("viber:"));
+
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href || "#"}
+                    target={item.href && !isAppProtocol ? "_blank" : undefined}
+                    rel={item.href && !isAppProtocol ? "noreferrer" : undefined}
+                    aria-label={item.label}
+                    onClick={(event) => handleLinkInteraction(event, item)}
+                    className="relative flex flex-shrink-0 items-center justify-center rounded-full transition-all duration-200 ease-out hover:-translate-y-1 hover:scale-110 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:scale-95 cursor-pointer"
                     style={{
-                      width: "clamp(20px, 5.5vw, 27px)",
-                      height: "clamp(20px, 5.5vw, 27px)",
+                      width: "clamp(32px, 9vw, 44px)",
+                      height: "clamp(32px, 9vw, 44px)",
                     }}
-                  />
-                ) : null}
-              </a>
-            ))}
+                  >
+                    <img
+                      src={item.src}
+                      alt=""
+                      className="object-contain"
+                      style={{
+                        width: "clamp(22px, 6vw, 30px)",
+                        height: "clamp(22px, 6vw, 30px)",
+                      }}
+                    />
+                    {item.type === "email" && item.srcOverlay ? (
+                      <img
+                        src={item.srcOverlay}
+                        alt=""
+                        className="pointer-events-none absolute object-contain"
+                        style={{
+                          width: "clamp(20px, 5.5vw, 27px)",
+                          height: "clamp(20px, 5.5vw, 27px)",
+                        }}
+                      />
+                    ) : null}
+                  </a>
+                );
+              })}
+            </div>
           </div>
 
           <button
