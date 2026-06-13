@@ -41,6 +41,7 @@ type ProfileData = {
   name: string | null;
   about_summary: string | null;
   resume_download_url: string | null;
+  cv_download_url: string | null;
 };
 
 type EducationData = {
@@ -162,7 +163,7 @@ async function fetchAboutPageDataFromServer(): Promise<AboutPageCacheData> {
   ] = await Promise.all([
     supabase
       .from("profile")
-      .select("name, about_summary, resume_download_url")
+      .select("name, about_summary, resume_download_url, cv_download_url")
       .limit(1)
       .maybeSingle(),
     supabase
@@ -582,12 +583,14 @@ export default function AboutPage() {
                 >
                   <Download size={16} /> Download Resume
                 </a>
-                <button
-                  type="button"
+                <a
+                  href={profile?.cv_download_url || ""}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex h-[48px] items-center gap-2 rounded-[24px] border border-primary bg-white px-6 text-[14px] font-semibold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-[color-mix(in_srgb,var(--color-primary)_10%,white)] active:translate-y-[1px] active:scale-[0.98]"
                 >
-                  ◔ Contact Me
-                </button>
+                  <Download size={16} /> Download CV
+                </a>
               </div>
             </div>
 

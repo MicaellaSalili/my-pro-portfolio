@@ -57,7 +57,7 @@ interface FooterProfileData {
   hero_title?: string;
   hero_sub_headline?: string;
   profile_image_url?: string;
-  resume_download_url?: string;
+  cv_download_url?: string;
   github_url?: string;
   linkedin_url?: string;
   email?: string;
@@ -81,7 +81,7 @@ const homeProfileStorageKey = "home_profile_cache_v1";
 async function fetchHomePageDataFromServer(): Promise<HomePageCacheData> {
   const profileRequest = supabase
     .from("profile")
-    .select("name, hero_title, hero_sub_headline, profile_image_url, resume_download_url, github_url, linkedin_url, email, viber_number, facebook_url, instagram_url")
+    .select("name, hero_title, hero_sub_headline, profile_image_url, cv_download_url, github_url, linkedin_url, email, viber_number, facebook_url, instagram_url")
     .single();
 
   const [{ data: projectsData }, { data: milestonesData }, { data: specializationData }, { data: profileData }] = await Promise.all([
@@ -163,43 +163,24 @@ function HomeHeroSection({
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  if (!profile) {
-    return (
-      <section className="w-full px-5 py-10 sm:px-6 md:px-10 lg:px-[70px]">
-        <div className="mx-auto flex max-w-[1180px] flex-col items-center gap-8 lg:flex-row lg:justify-center lg:gap-16">
-          <div
-            className="aspect-square w-full max-w-[280px] animate-pulse rounded-t-[36px] border-2 bg-white/60 shadow-[8px_8px_0px_0px_var(--color-primary)] md:max-w-[340px]"
-            style={{ borderColor: "var(--color-secondary)" }}
-          />
-          <div className="flex w-full max-w-[620px] flex-col gap-4 px-1">
-            <div className="h-7 w-[70%] animate-pulse rounded bg-white/70" />
-            <div className="h-10 w-[88%] animate-pulse rounded bg-white/70" />
-            <div className="h-5 w-full animate-pulse rounded bg-white/70" />
-            <div className="h-5 w-[82%] animate-pulse rounded bg-white/70" />
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  const viberLink = profile.viber_number
+  const viberLink = profile?.viber_number
     ? `viber://chat?number=${encodeURIComponent(profile.viber_number)}`
     : "";
 
   const socialLinks = [
-    { href: profile.resume_download_url, label: "Resume", type: "image" as const, src: imgHeroProfile },
-    { href: profile.github_url, label: "GitHub", type: "image" as const, src: imgHeroGithub },
-    { href: profile.linkedin_url, label: "LinkedIn", type: "image" as const, src: imgHeroLinkedin },
+    { href: profile?.cv_download_url, label: "CV", type: "image" as const, src: imgHeroProfile },
+    { href: profile?.github_url, label: "GitHub", type: "image" as const, src: imgHeroGithub },
+    { href: profile?.linkedin_url, label: "LinkedIn", type: "image" as const, src: imgHeroLinkedin },
     {
-      href: profile.email ? `mailto:${profile.email}` : "",
+      href: profile?.email ? `mailto:${profile.email}` : "",
       label: "Email",
       type: "email" as const,
       src: imgHeroEmail,
       srcOverlay: imgHeroEmailOverlay,
     },
     { href: viberLink, label: "Viber", type: "image" as const, src: imgHeroViber },
-    { href: profile.facebook_url, label: "Facebook", type: "image" as const, src: imgHeroFacebook },
-    { href: profile.instagram_url, label: "Instagram", type: "image" as const, src: imgHeroInstagram },
+    { href: profile?.facebook_url, label: "Facebook", type: "image" as const, src: imgHeroFacebook },
+    { href: profile?.instagram_url, label: "Instagram", type: "image" as const, src: imgHeroInstagram },
   ];
 
   return (
@@ -209,35 +190,16 @@ function HomeHeroSection({
           isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
         }`}
       >
-        {/* FIX 2: Profile image card with properly sized decorative dots */}
         <div className="relative flex aspect-square w-full max-w-[280px] shrink-0 flex-col overflow-hidden rounded-[38px] border-2 border-violet-400 bg-white shadow-[8px_8px_0px_0px_var(--color-primary),0_18px_45px_rgba(128,94,255,0.14)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_var(--color-primary),0_24px_60px_rgba(128,94,255,0.2)] sm:max-w-[340px] sm:rounded-[48px] md:max-w-[390px] lg:max-w-[430px]">
-          {/*
-            FIX 2 APPLIED HERE:
-            - Dots changed from h-0.5 w-0.5 (2px) on mobile to h-3 w-3 (12px) — actually visible
-            - Added flex-shrink-0 so flex container never compresses them
-            - Added block so the <span> respects explicit width/height
-            - Added aspect-ratio via inline style to lock the circle shape
-            - Tightened gap to gap-2 on mobile, gap-3 on sm+
-            - Reduced px from px-7 to px-5 on mobile for better breathing room
-          */}
           <div className="flex h-[54px] w-full shrink-0 items-center gap-2 rounded-t-[36px] bg-white px-5 sm:h-[64px] sm:gap-3 sm:rounded-t-[46px] sm:px-9">
-            <span
-              className="block h-3 w-3 flex-shrink-0 rounded-full bg-[#ef655d] sm:h-4 sm:w-4"
-              style={{ aspectRatio: "1 / 1" }}
-            />
-            <span
-              className="block h-3 w-3 flex-shrink-0 rounded-full bg-[#e7bf45] sm:h-4 sm:w-4"
-              style={{ aspectRatio: "1 / 1" }}
-            />
-            <span
-              className="block h-3 w-3 flex-shrink-0 rounded-full bg-[#62bd58] sm:h-4 sm:w-4"
-              style={{ aspectRatio: "1 / 1" }}
-            />
+            <span className="block h-3 w-3 flex-shrink-0 rounded-full bg-[#ef655d] sm:h-4 sm:w-4" style={{ aspectRatio: "1 / 1" }} />
+            <span className="block h-3 w-3 flex-shrink-0 rounded-full bg-[#e7bf45] sm:h-4 sm:w-4" style={{ aspectRatio: "1 / 1" }} />
+            <span className="block h-3 w-3 flex-shrink-0 rounded-full bg-[#62bd58] sm:h-4 sm:w-4" style={{ aspectRatio: "1 / 1" }} />
           </div>
-          {profile.profile_image_url ? (
+          {profile?.profile_image_url ? (
             <img
-              src={profile.profile_image_url}
-              alt={profile.name || "Profile portrait"}
+              src={profile?.profile_image_url}
+              alt={profile?.name || "Profile portrait"}
               className="h-full min-h-0 w-full flex-1 object-cover object-center"
             />
           ) : null}
@@ -249,24 +211,16 @@ function HomeHeroSection({
           }`}
         >
           <div className="max-w-full text-[42px] font-extrabold leading-[0.98] tracking-normal text-[#0f1833] sm:text-[54px] md:text-[68px] lg:text-[84px]">
-            <p className="break-words">{profile.hero_title}</p>
+            <p className="break-words">{profile?.hero_title}</p>
             <p className="break-words font-extrabold" style={{ color: "var(--color-primary)" }}>
-              {profile.name}
+              {profile?.name}
             </p>
           </div>
 
           <p className="max-w-[620px] text-[16px] font-medium leading-[1.65] text-slate-600 sm:text-[18px] md:text-[20px]">
-            {profile.hero_sub_headline}
+            {profile?.hero_sub_headline}
           </p>
 
-          {/*
-            FIX 1 APPLIED HERE:
-            - gap changed from gap-3 (12px fixed) to a fluid clamp via inline style
-            - Each <a> gets flex-shrink-0 so it never compresses below its clamp size
-            - Icon tap target uses clamp(32px, 9vw, 44px): at 320px = ~29px, at 375px = ~34px, at 768px+ = 44px
-            - Inner <img> also uses clamp for proportional fluid scaling
-            - This keeps all 7 icons on a single row down to 320px viewport width
-          */}
           <div
             className="flex w-full flex-wrap items-center justify-center bg-transparent p-0 md:justify-start"
             style={{ gap: "clamp(4px, 2vw, 12px)" }}
@@ -336,7 +290,7 @@ function ProjectImageIcon() {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      className="h-[72px] w-[72px] sm:h-[84px] sm:w-[84px]"
+      className="h-[48px] w-[48px] sm:h-[64px] sm:w-[64px]"
     >
       <rect x="4" y="8" width="76" height="68" rx="9" stroke="#292929" strokeWidth="3" />
       <circle cx="28" cy="28" r="6" stroke="#292929" strokeWidth="3" />
@@ -360,9 +314,7 @@ function ProjectCard({
     if (!value) {
       return [] as string[];
     }
-
     const trimmedValue = value.trim();
-
     if (trimmedValue.startsWith("[") && trimmedValue.endsWith("]")) {
       try {
         const parsedValue = JSON.parse(trimmedValue);
@@ -374,7 +326,6 @@ function ProjectCard({
       } catch {
       }
     }
-
     return trimmedValue
       .split(",")
       .map((item) => item.trim())
@@ -393,65 +344,78 @@ function ProjectCard({
   return (
     <article
       onClick={() => onOpenProjectDetails(project.id)}
-      className="group relative flex h-full w-full cursor-pointer flex-col rounded-[20px] border border-primary bg-white p-4 pb-20 shadow-[7px_7px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[11px_11px_0px_0px_var(--color-primary)] sm:p-5 sm:pb-24"
+      className="group relative flex w-full cursor-pointer flex-col rounded-[16px] border border-primary bg-white shadow-[5px_5px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_var(--color-primary)] sm:rounded-[20px] sm:shadow-[7px_7px_0px_0px_var(--color-primary)] sm:hover:shadow-[11px_11px_0px_0px_var(--color-primary)]"
     >
-      <div className="mb-5 flex min-h-[32px] flex-wrap items-center gap-2">
-        {visibleTechStack.map((tech, idx) => (
-          <SkillTag
-            onClick={(event) => {
-              event.stopPropagation();
-              onClickSkillTag(tech);
-            }}
-            key={`${project.id}-${tech}-${idx}`}
-            label={tech}
-          />
-        ))}
-        {hasMoreTech ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setShowAllTech((previous) => !previous);
-            }}
-            className="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full bg-primary/15 px-2 text-[14px] font-semibold leading-none text-primary transition-colors hover:bg-primary/25 focus:outline-none focus:ring-2 focus:ring-primary/30"
-            aria-label={showAllTech ? "Show fewer tech skills" : `Show ${hiddenTechCount} more tech skills`}
-          >
-            {showAllTech ? "-" : `+${hiddenTechCount}`}
-          </button>
-        ) : null}
+      {/* Thumbnail — full width, fixed aspect ratio, no padding so image is flush */}
+      <div className="relative w-full overflow-hidden rounded-t-[15px] sm:rounded-t-[19px]">
+        <div className="aspect-[16/9] w-full bg-slate-100 sm:aspect-[16/10]">
+          {project.thumbnail_url ? (
+            <img
+              src={project.thumbnail_url}
+              alt={project.title}
+              className="h-full w-full object-cover object-center transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <ProjectImageIcon />
+            </div>
+          )}
+        </div>
+
+        {/* Arrow button overlaid on image bottom-right */}
+        <button
+          type="button"
+          aria-label={`See more about ${project.title}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenProjectDetails(project.id);
+          }}
+          className="absolute bottom-3 right-3 inline-flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-primary text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 focus:outline-none active:scale-95 sm:h-[44px] sm:w-[44px] sm:rounded-[14px]"
+        >
+          <ArrowUpRight size={18} className="sm:hidden" />
+          <ArrowUpRight size={22} className="hidden sm:block" />
+        </button>
       </div>
 
-      <div className="mb-6 flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-[16px] bg-slate-50">
-        {project.thumbnail_url ? (
-          <img
-            src={project.thumbnail_url}
-            alt={project.title}
-            className="h-full w-full object-contain object-center transition-transform duration-300 ease-out group-hover:scale-[1.03]"
-          />
-        ) : (
-          <ProjectImageIcon />
-        )}
+      {/* Content — compact padding on mobile */}
+      <div className="flex flex-1 flex-col gap-2 p-4 sm:gap-3 sm:p-5">
+        {/* Tags */}
+        <div className="flex min-h-[26px] flex-wrap items-center gap-1.5 sm:gap-2">
+          {visibleTechStack.map((tech, idx) => (
+            <SkillTag
+              onClick={(event) => {
+                event.stopPropagation();
+                onClickSkillTag(tech);
+              }}
+              key={`${project.id}-${tech}-${idx}`}
+              label={tech}
+            />
+          ))}
+          {hasMoreTech ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setShowAllTech((previous) => !previous);
+              }}
+              className="inline-flex h-[26px] min-w-[26px] items-center justify-center rounded-full bg-primary/15 px-2 text-[12px] font-semibold leading-none text-primary transition-colors hover:bg-primary/25 focus:outline-none sm:h-[30px] sm:text-[14px]"
+              aria-label={showAllTech ? "Show fewer tech skills" : `Show ${hiddenTechCount} more tech skills`}
+            >
+              {showAllTech ? "−" : `+${hiddenTechCount}`}
+            </button>
+          ) : null}
+        </div>
+
+        {/* Title */}
+        <h3 className="text-left text-[18px] font-extrabold leading-[1.1] text-black sm:text-[26px] md:text-[32px]">
+          {project.title}
+        </h3>
+
+        {/* Description */}
+        <p className="line-clamp-2 text-left text-[13px] font-medium leading-relaxed text-secondary sm:line-clamp-3 sm:text-[15px]">
+          {project.description}
+        </p>
       </div>
-
-      <h3 className="text-left text-[28px] font-extrabold leading-[1.08] text-black sm:text-[34px] md:text-[38px]">
-        {project.title}
-      </h3>
-
-      <p className="mt-3 line-clamp-3 text-left text-[15px] font-medium leading-relaxed text-secondary sm:text-[16px]">
-        {project.description}
-      </p>
-
-      <button
-        type="button"
-        aria-label={`See more about ${project.title}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          onOpenProjectDetails(project.id);
-        }}
-        className="absolute bottom-6 right-6 inline-flex h-[46px] w-[46px] items-center justify-center rounded-[15px] bg-primary text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:translate-y-0 active:scale-95 sm:bottom-7 sm:right-7 sm:h-[48px] sm:w-[48px]"
-      >
-        <ArrowUpRight size={22} />
-      </button>
     </article>
   );
 }
@@ -461,7 +425,6 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
   const [milestones, setMilestones] = useState<MilestoneData[]>(homePageMemoryCache?.milestones || []);
   const [specializations, setSpecializations] = useState<SpecializationData[]>(homePageMemoryCache?.specializations || []);
   const [profile, setProfile] = useState<FooterProfileData | null>(homePageMemoryCache?.profile || cachedHomeProfile);
-  const [isHomeReady, setIsHomeReady] = useState<boolean>(Boolean(homePageMemoryCache?.profile || cachedHomeProfile));
 
   useEffect(() => {
     let isUnmounted = false;
@@ -475,7 +438,6 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
               const parsedProfile = JSON.parse(rawProfile) as FooterProfileData;
               cachedHomeProfile = parsedProfile;
               setProfile(parsedProfile);
-              setIsHomeReady(true);
             }
           } catch {
           }
@@ -486,7 +448,6 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
           setMilestones(homePageMemoryCache.milestones);
           setSpecializations(homePageMemoryCache.specializations);
           setProfile(homePageMemoryCache.profile);
-          setIsHomeReady(true);
           return;
         }
 
@@ -501,7 +462,6 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
         setProfile(nextData.profile);
       } finally {
         if (!isUnmounted) {
-          setIsHomeReady(true);
         }
       }
     }
@@ -525,7 +485,7 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
         description: item.description,
         bullets: item.bullets || [],
         icon: imgSpecRedesign,
-        iconClassName: "h-[52px] w-[52px] sm:h-[56px] sm:w-[56px]",
+        iconClassName: "h-[40px] w-[40px] sm:h-[52px] sm:w-[52px]",
       };
     });
   }, [specializations]);
@@ -535,52 +495,46 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
     setCurrentPage("works");
   }
 
-  if (!isHomeReady) {
-    return (
-      <section className="w-full px-5 pb-12 pt-10 sm:px-6 md:px-10 lg:flex lg:min-h-[calc(100vh-120px)] lg:items-center lg:px-[70px] lg:py-0">
-        <div className="mx-auto flex w-full max-w-[1100px] flex-col items-center justify-center gap-4">
-          <div className="h-3 w-[180px] animate-pulse rounded-full bg-primary/40" />
-          <p className="text-sm font-medium text-secondary/80">Loading portfolio...</p>
-        </div>
-      </section>
-    );
-  }
-
   return (
     <div className="w-full overflow-hidden">
       <HomeHeroSection setCurrentPage={setCurrentPage} profile={profile} />
 
+      {/* ── Specialization ── */}
       <RevealOnScroll threshold={0.2}>
-        <section className="w-full px-5 py-12 sm:px-6 md:px-10 lg:px-[70px]">
+        <section className="w-full px-4 py-8 sm:px-6 sm:py-12 md:px-10 lg:px-[70px]">
           <div className="mx-auto max-w-[1300px]">
-            <div className="mb-8 text-center">
-              <h2 className="text-[30px] font-bold leading-tight text-secondary sm:text-[36px]">
+            <div className="mb-5 text-center sm:mb-8">
+              <h2 className="text-[22px] font-bold leading-tight text-secondary sm:text-[30px] lg:text-[36px]">
                 Specialization
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-[30px]">
+            <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-3 lg:gap-[30px]">
               {serviceCards.map((card) => (
                 <article
                   key={card.title}
-                  className="group rounded-[20px] border border-primary bg-white p-5 shadow-[7px_7px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[11px_11px_0px_0px_var(--color-primary)] sm:p-6"
+                  className="group rounded-[14px] border border-primary bg-white p-3 shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[7px_7px_0px_0px_var(--color-primary)] sm:rounded-[20px] sm:p-6 sm:shadow-[7px_7px_0px_0px_var(--color-primary)] sm:hover:shadow-[11px_11px_0px_0px_var(--color-primary)]"
                 >
-                  <div className="relative mb-5 flex h-[72px] w-[72px] items-center justify-center rounded-[18px] bg-primary/10">
-                    <img src={card.icon} alt="" className={`${card.iconClassName} object-contain transition-transform duration-300 ease-out group-hover:scale-110`} />
+                  <div className="relative mb-2 flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-primary/10 sm:mb-5 sm:h-[72px] sm:w-[72px] sm:rounded-[18px]">
+                    <img
+                      src={card.icon}
+                      alt=""
+                      className="h-[24px] w-[24px] object-contain transition-transform duration-300 ease-out group-hover:scale-110 sm:h-[52px] sm:w-[52px]"
+                    />
                     {card.iconOverlay ? (
-                      <img src={card.iconOverlay} alt="" className="absolute bottom-1 right-1 h-[24px] w-[24px] object-contain" />
+                      <img src={card.iconOverlay} alt="" className="absolute bottom-0.5 right-0.5 h-[14px] w-[14px] object-contain sm:bottom-1 sm:right-1 sm:h-[24px] sm:w-[24px]" />
                     ) : null}
                   </div>
 
-                  <h3 className="mb-3 text-[22px] font-bold leading-tight text-black sm:text-[24px]">
+                  <h3 className="mb-1 text-[14px] font-bold leading-tight text-black sm:mb-3 sm:text-[22px] md:text-[24px]">
                     {card.title}
                   </h3>
 
-                  <p className="mb-4 text-[16px] font-medium leading-[1.55] text-secondary sm:text-[17px]">
+                  <p className="mb-1.5 text-[12px] font-medium leading-[1.45] text-secondary sm:mb-4 sm:text-[16px] sm:leading-[1.55] md:text-[17px]">
                     {card.description}
                   </p>
 
-                  <ul className="list-disc space-y-2 pl-5 text-[15px] font-medium leading-relaxed text-secondary sm:text-[16px]">
+                  <ul className="list-disc space-y-0.5 pl-4 text-[11px] font-medium leading-relaxed text-secondary sm:space-y-2 sm:pl-5 sm:text-[15px] md:text-[16px]">
                     {card.bullets.map((bullet) => (
                       <li key={bullet}>{bullet}</li>
                     ))}
@@ -589,43 +543,45 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
               ))}
             </div>
 
-            <div className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-[20px] border border-primary/15 bg-white/60 p-4 backdrop-blur sm:p-5 md:flex-row md:items-center">
-              <p className="max-w-[840px] text-[14px] font-medium leading-relaxed text-secondary sm:text-[15px]">
+            <div className="mt-5 flex flex-col items-stretch justify-between gap-3 rounded-[14px] border border-primary/15 bg-white/60 p-3 backdrop-blur sm:mt-8 sm:gap-4 sm:rounded-[20px] sm:p-5 md:flex-row md:items-center">
+              <p className="max-w-[840px] text-[12px] font-medium leading-relaxed text-secondary sm:text-[14px] md:text-[15px]">
                 Have something specific in mind? Feel free to ask me any questions or let me know exactly what you need.
               </p>
 
               <button
                 onClick={() => setCurrentPage("contact")}
-                className="inline-flex min-h-[46px] shrink-0 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:translate-y-0 active:scale-[0.98] md:px-8 md:text-base"
+                className="inline-flex min-h-[40px] shrink-0 items-center justify-center rounded-[10px] px-5 text-[13px] font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:translate-y-0 active:scale-[0.98] sm:min-h-[46px] sm:rounded-xl sm:px-8 sm:text-base"
                 style={{ backgroundColor: "var(--color-primary)" }}
               >
                 Inquire
-                <img src={imgArrowFilled} alt="" className="ml-3 h-[18px] w-[22px]" />
+                <img src={imgArrowFilled} alt="" className="ml-2 h-[14px] w-[18px] sm:ml-3 sm:h-[18px] sm:w-[22px]" />
               </button>
             </div>
           </div>
         </section>
       </RevealOnScroll>
 
+      {/* ── Milestones ── */}
       <RevealOnScroll threshold={0.2}>
-        <section className="w-full px-5 py-12 sm:px-6 md:px-10 lg:px-[70px]">
+        <section className="w-full px-4 py-8 sm:px-6 sm:py-12 md:px-10 lg:px-[70px]">
           <div className="mx-auto max-w-[1300px]">
-            <div className="mb-8 text-center">
-              <h2 className="text-[30px] font-bold leading-tight text-secondary sm:text-[36px]">
+            <div className="mb-5 text-center sm:mb-8">
+              <h2 className="text-[22px] font-bold leading-tight text-secondary sm:text-[30px] lg:text-[36px]">
                 Milestones
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {/* 3-column grid on mobile too, compact cards */}
+            <div className="grid grid-cols-3 gap-3 sm:gap-6 lg:grid-cols-3">
               {milestones.map((milestone) => (
                 <article
                   key={milestone.id}
-                  className="flex min-h-[128px] flex-col items-center justify-center rounded-[16px] border border-primary bg-white px-5 py-7 text-center shadow-[7px_7px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[11px_11px_0px_0px_var(--color-primary)]"
+                  className="flex flex-col items-center justify-center rounded-[12px] border border-primary bg-white px-2 py-4 text-center shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[7px_7px_0px_0px_var(--color-primary)] sm:rounded-[16px] sm:px-5 sm:py-7 sm:shadow-[7px_7px_0px_0px_var(--color-primary)] sm:hover:shadow-[11px_11px_0px_0px_var(--color-primary)]"
                 >
-                  <p className="text-[34px] font-extrabold leading-none text-[#805eff] sm:text-[38px]">
+                  <p className="text-[22px] font-extrabold leading-none text-[#805eff] sm:text-[34px] md:text-[38px]">
                     {milestone.value}
                   </p>
-                  <p className="mt-3 text-[17px] font-semibold leading-snug text-secondary sm:text-[19px]">
+                  <p className="mt-1.5 text-[11px] font-semibold leading-snug text-secondary sm:mt-3 sm:text-[17px] md:text-[19px]">
                     {milestone.label}
                   </p>
                 </article>
@@ -635,23 +591,24 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
         </section>
       </RevealOnScroll>
 
+      {/* ── Projects ── */}
       <RevealOnScroll threshold={0.05}>
-        <section className="w-full px-5 py-12 sm:px-6 md:px-10 lg:px-[70px]">
+        <section className="w-full px-4 py-8 sm:px-6 sm:py-12 md:px-10 lg:px-[70px]">
           <div className="mx-auto max-w-[1300px]">
-            <div className="mb-7 flex flex-col items-center justify-between gap-4 sm:flex-row">
-              <h2 className="text-center text-[30px] font-bold leading-tight text-secondary sm:text-left sm:text-[36px]">
+            <div className="mb-5 flex flex-col items-center justify-between gap-3 sm:mb-7 sm:flex-row sm:gap-4">
+              <h2 className="text-center text-[22px] font-bold leading-tight text-secondary sm:text-left sm:text-[30px] lg:text-[36px]">
                 Projects
               </h2>
 
               <button
                 onClick={() => setCurrentPage("works")}
-                className="inline-flex h-[48px] w-full items-center justify-center rounded-[16px] border-[3px] border-primary bg-primary px-6 text-[18px] font-semibold leading-none text-white transition-all duration-200 ease-out hover:-translate-y-0.5 hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:translate-y-0 active:scale-[0.98] sm:w-auto"
+                className="inline-flex h-[38px] w-full items-center justify-center rounded-[12px] border-[2px] border-primary bg-primary px-5 text-[14px] font-semibold leading-none text-white transition-all duration-200 ease-out hover:-translate-y-0.5 hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:translate-y-0 active:scale-[0.98] sm:h-[48px] sm:w-auto sm:rounded-[16px] sm:border-[3px] sm:px-6 sm:text-[18px]"
               >
                 See All
               </button>
             </div>
 
-            <div className="grid grid-cols-1 items-stretch gap-8 xl:grid-cols-2 xl:gap-10">
+            <div className="grid grid-cols-1 gap-4 sm:gap-8 xl:grid-cols-2 xl:gap-10">
               {visibleProjects.map((project) => (
                 <ProjectCard
                   key={project.id}

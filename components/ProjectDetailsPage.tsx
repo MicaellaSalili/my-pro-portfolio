@@ -685,12 +685,12 @@ export default function ProjectDetailsPage({
                       <article
                         key={`${feature.title}-${feature.description}-${index}`}
                         style={{ transitionDelay: `${Math.min(index, 7) * 55}ms` }}
-                        className="group flex flex-col gap-3 rounded-[16px] border border-black/8 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+                        className="group flex flex-col gap-3 overflow-hidden rounded-[16px] border border-black/8 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
                       >
                         <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-primary/8 text-[15px] text-primary transition-transform duration-300 group-hover:scale-110">
                           ◔
                         </div>
-                        <h3 className="text-[14px] font-semibold leading-[1.3] text-black">{feature.title}</h3>
+                        <h3 className="break-words text-[14px] font-semibold leading-[1.3] text-black">{feature.title}</h3>
                         {feature.description ? (
                           <p className="line-clamp-5 text-[13px] leading-[1.5] text-secondary">{feature.description}</p>
                         ) : null}
