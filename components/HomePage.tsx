@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SkillTag from "./SkillTag";
 import RevealOnScroll from "./RevealOnScroll";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
 
@@ -484,6 +484,7 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
   const [milestones, setMilestones] = useState<MilestoneData[]>(homePageMemoryCache?.milestones || []);
   const [specializations, setSpecializations] = useState<SpecializationData[]>(homePageMemoryCache?.specializations || []);
   const [profile, setProfile] = useState<FooterProfileData | null>(homePageMemoryCache?.profile || cachedHomeProfile);
+  const specCarouselRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let isUnmounted = false;
@@ -554,6 +555,23 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
     setCurrentPage("works");
   }
 
+  function scrollSpecializations(direction: "left" | "right") {
+    const container = specCarouselRef.current;
+    if (!container) {
+      return;
+    }
+
+    const firstCard = container.querySelector<HTMLElement>("[data-spec-card]");
+    const cardWidth = firstCard ? firstCard.getBoundingClientRect().width : container.clientWidth * 0.85;
+    const gap = 16;
+    const scrollAmount = cardWidth + gap;
+
+    container.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  }
+
   return (
     <div className="w-full overflow-hidden">
       <HomeHeroSection setCurrentPage={setCurrentPage} profile={profile} />
@@ -562,47 +580,79 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
       <RevealOnScroll threshold={0.2}>
         <section className="w-full px-4 py-8 sm:px-6 sm:py-12 md:px-10 lg:px-[70px]">
           <div className="mx-auto max-w-[1300px]">
-            <div className="mb-5 text-center sm:mb-8">
-              <h2 className="text-[22px] font-bold leading-tight text-secondary sm:text-[30px] lg:text-[36px]">
-                Specialization
-              </h2>
-            </div>
+            <div className="p-0 sm:p-0">
+              <div className="mb-4 flex items-center justify-between gap-3 sm:mb-6">
+                <h2 className="text-[22px] font-bold leading-tight text-secondary sm:text-[30px] lg:text-[36px]">
+                  Specialization
+                </h2>
 
-            <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-3 lg:gap-[30px]">
-              {serviceCards.map((card) => (
-                <article
-                  key={card.title}
-                  className="group rounded-[14px] border border-primary bg-white p-3 shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[7px_7px_0px_0px_var(--color-primary)] sm:rounded-[20px] sm:p-6 sm:shadow-[7px_7px_0px_0px_var(--color-primary)] sm:hover:shadow-[11px_11px_0px_0px_var(--color-primary)]"
-                >
-                  <div className="relative mb-2 flex h-[36px] w-[36px] items-center justify-center rounded-[10px] bg-primary/10 sm:mb-5 sm:h-[72px] sm:w-[72px] sm:rounded-[18px]">
-                    <img
-                      src={card.icon}
-                      alt=""
-                      className="h-[24px] w-[24px] object-contain transition-transform duration-300 ease-out group-hover:scale-110 sm:h-[52px] sm:w-[52px]"
-                    />
-                    {card.iconOverlay ? (
-                      <img src={card.iconOverlay} alt="" className="absolute bottom-0.5 right-0.5 h-[14px] w-[14px] object-contain sm:bottom-1 sm:right-1 sm:h-[24px] sm:w-[24px]" />
-                    ) : null}
+                {serviceCards.length > 1 ? (
+                  <div className="hidden items-center gap-2 sm:flex">
+                    <button
+                      type="button"
+                      onClick={() => scrollSpecializations("left")}
+                      aria-label="Scroll specializations left"
+                      className="inline-flex h-[40px] w-[40px] items-center justify-center rounded-full border border-primary/30 bg-white text-primary shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary hover:text-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:scale-95"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollSpecializations("right")}
+                      aria-label="Scroll specializations right"
+                      className="inline-flex h-[40px] w-[40px] items-center justify-center rounded-full border border-primary/30 bg-white text-primary shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary hover:text-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 active:scale-95"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
                   </div>
+                ) : null}
+              </div>
 
-                  <h3 className="mb-1 text-[14px] font-bold leading-tight text-black sm:mb-3 sm:text-[22px] md:text-[24px]">
-                    {card.title}
-                  </h3>
+              {/* Single-row horizontal carousel with scroll-snap */}
+              <div
+                ref={specCarouselRef}
+                className="hide-scrollbar flex w-full items-stretch snap-x snap-mandatory gap-3 overflow-x-auto pb-2 sm:gap-6 sm:pb-3"
+                style={{ scrollbarWidth: "none" }}
+              >
+                <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
 
-                  <p className="mb-1.5 text-[12px] font-medium leading-[1.45] text-secondary sm:mb-4 sm:text-[16px] sm:leading-[1.55] md:text-[17px]">
-                    {card.description}
-                  </p>
+                {serviceCards.map((card) => (
+                  <article
+                    key={card.title}
+                    data-spec-card
+                    className="group flex h-full shrink-0 snap-start flex-col rounded-[14px] border border-primary bg-white p-3 shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[7px_7px_0px_0px_var(--color-primary)] sm:rounded-[20px] sm:p-6 sm:shadow-[7px_7px_0px_0px_var(--color-primary)] sm:hover:shadow-[11px_11px_0px_0px_var(--color-primary)]"
+                    style={{ width: "min(85vw, 340px)" }}
+                  >
+                    <div className="relative mb-2 flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[8px] bg-primary/10 sm:mb-5 sm:h-[44px] sm:w-[44px] sm:rounded-[12px]">
+                      <img
+                        src={card.icon}
+                        alt=""
+                        className="h-[18px] w-[18px] object-contain transition-transform duration-300 ease-out group-hover:scale-110 sm:h-[28px] sm:w-[28px]"
+                      />
+                      {card.iconOverlay ? (
+                        <img src={card.iconOverlay} alt="" className="absolute bottom-0.5 right-0.5 h-[10px] w-[10px] object-contain sm:bottom-1 sm:right-1 sm:h-[16px] sm:w-[16px]" />
+                      ) : null}
+                    </div>
 
-                  <ul className="list-disc space-y-0.5 pl-4 text-[11px] font-medium leading-relaxed text-secondary sm:space-y-2 sm:pl-5 sm:text-[15px] md:text-[16px]">
-                    {card.bullets.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
+                    <h3 className="mb-1 shrink-0 text-[14px] font-bold leading-tight text-black sm:mb-3 sm:text-[22px] md:text-[24px]">
+                      {card.title}
+                    </h3>
+
+                    <p className="mb-1.5 shrink-0 text-[12px] font-medium leading-[1.45] text-secondary sm:mb-4 sm:text-[16px] sm:leading-[1.55] md:text-[17px]">
+                      {card.description}
+                    </p>
+
+                    <ul className="list-disc space-y-0.5 pl-4 text-[11px] font-medium leading-relaxed text-secondary sm:space-y-2 sm:pl-5 sm:text-[15px] md:text-[16px]">
+                      {card.bullets.map((bullet) => (
+                        <li key={bullet}>{bullet}</li>
+                      ))}
+                    </ul>
+                  </article>
+                ))}
+              </div>
             </div>
 
-            <div className="mt-5 flex flex-col items-stretch justify-between gap-3 rounded-[14px] border border-primary/15 bg-white/60 p-3 backdrop-blur sm:mt-8 sm:gap-4 sm:rounded-[20px] sm:p-5 md:flex-row md:items-center">
+            <div className="mt-5 flex flex-col items-stretch justify-between gap-3 p-0 sm:mt-8 sm:gap-4 md:flex-row md:items-center">
               <p className="max-w-[840px] text-[12px] font-medium leading-relaxed text-secondary sm:text-[14px] md:text-[15px]">
                 Have something specific in mind? Feel free to ask me any questions or let me know exactly what you need.
               </p>

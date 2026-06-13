@@ -143,18 +143,9 @@ function normalizeProjectType(value: string | null) {
 }
 
 function toProjectTypeValue(label: string) {
-  if (label === "Personal") {
-    return "Personal Project";
-  }
-
-  if (label === "Client") {
-    return "Client Project";
-  }
-
-  if (label === "School") {
-    return "School Project";
-  }
-
+  if (label === "Personal") return "Personal Project";
+  if (label === "Client") return "Client Project";
+  if (label === "School") return "School Project";
   return label;
 }
 
@@ -176,7 +167,7 @@ function ProjectImageIcon() {
   );
 }
 
-function ProjectCard({
+function WorksProjectCard({
   project,
   onOpenProjectDetails,
   onClickSkillTag,
@@ -186,53 +177,27 @@ function ProjectCard({
   onClickSkillTag: (skill: string) => void;
 }) {
   const [showAllTech, setShowAllTech] = useState(false);
-  const hasMoreTech = project.techStack.length > 3;
-  const hiddenTechCount = Math.max(project.techStack.length - 3, 0);
-  const visibleTechStack = showAllTech || !hasMoreTech ? project.techStack : project.techStack.slice(0, 3);
+  // Always show max 2 tags collapsed so the +N button always fits on the same line
+  const COLLAPSED_VISIBLE = 2;
+  const hasMoreTech = project.techStack.length > COLLAPSED_VISIBLE;
+  const hiddenTechCount = Math.max(project.techStack.length - COLLAPSED_VISIBLE, 0);
+  const collapsedTags = project.techStack.slice(0, COLLAPSED_VISIBLE);
 
   return (
     <article
       onClick={() => onOpenProjectDetails(project.id)}
-      className="group relative flex w-full cursor-pointer flex-col rounded-[34px] border border-[rgba(163,134,255,0.28)] bg-white p-5 shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99] sm:p-6 md:p-8"
-      style={{ height: "480px" }}
+      className="group relative flex h-full w-full cursor-pointer flex-col rounded-[20px] border border-[rgba(163,134,255,0.28)] bg-white shadow-[8px_8px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[12px_12px_0px_0px_var(--color-primary)] active:translate-y-0 active:scale-[0.99] overflow-hidden"
     >
-      {/* Tags row — fixed height area */}
-      <div className="mb-4 flex h-[36px] shrink-0 flex-wrap items-center gap-2 overflow-hidden">
-        {visibleTechStack.map((tech, idx) => (
-          <SkillTag
-            onClick={(event) => {
-              event.stopPropagation();
-              onClickSkillTag(tech);
-            }}
-            key={`${project.id}-${tech}-${idx}`}
-            label={tech}
-          />
-        ))}
-        {hasMoreTech ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setShowAllTech((previous) => !previous);
-            }}
-            className="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full bg-primary/15 px-2 text-[14px] font-semibold leading-none text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/25 active:translate-y-0 active:scale-95"
-            aria-label={showAllTech ? "Show fewer tech skills" : `Show ${hiddenTechCount} more tech skills`}
-          >
-            {showAllTech ? "−" : `+${hiddenTechCount}`}
-          </button>
-        ) : null}
-      </div>
-
-      {/* Thumbnail — fixed height */}
-      <div className="relative mb-6 h-[200px] w-full shrink-0 overflow-hidden rounded-[18px] bg-[#F0EFF5]">
+      {/* Thumbnail */}
+      <div className="relative w-full shrink-0 bg-[#F0EFF5] aspect-video">
         {project.thumbnailUrl ? (
           <img
             src={project.thumbnailUrl}
             alt={project.title}
-            className="h-full w-full object-contain object-center transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+            className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 ease-out group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center">
             <ProjectImageIcon />
           </div>
         )}
@@ -247,14 +212,65 @@ function ProjectCard({
         </button>
       </div>
 
-      {/* Text — fills remaining space, content clipped */}
-      <div className="flex min-h-0 flex-1 flex-col justify-end">
-        <h3 className="line-clamp-2 text-left text-[30px] font-extrabold leading-[1.06] text-black sm:text-[34px] md:text-[38px]">
+      <div className="flex flex-col flex-1 px-5 pt-5 pb-4 sm:px-6 md:px-8 md:pb-5">
+      {/* Tags Row */}
+      <div className="mb-4 shrink-0 min-h-[34px]">
+        {!showAllTech ? (
+          /* Collapsed: single flex row, no wrap, overflow-x hidden.
+             Max 2 tags shown so the +N pill always fits on the same line at any width. */
+          <div className="flex flex-nowrap items-center gap-2 overflow-hidden">
+            {collapsedTags.map((tech, idx) => (
+              <button
+                key={`${project.id}-${tech}-${idx}`}
+                type="button"
+                onClick={(event) => { event.stopPropagation(); onClickSkillTag(tech); }}
+                className="shrink-0 inline-flex h-[30px] items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-3 text-[11px] font-bold uppercase tracking-wide text-primary transition-all duration-200 hover:bg-primary/20 active:scale-95 whitespace-nowrap"
+              >
+                {tech}
+              </button>
+            ))}
+            {hasMoreTech && (
+              <button
+                type="button"
+                onClick={(event) => { event.stopPropagation(); setShowAllTech(true); }}
+                className="shrink-0 inline-flex h-[30px] min-w-[36px] items-center justify-center rounded-full bg-primary/15 px-2.5 text-[12px] font-bold leading-none text-primary border border-primary/5 transition-all duration-200 hover:bg-primary/25 active:scale-95"
+                aria-label={`Show ${hiddenTechCount} more tech skills`}
+              >
+                +{hiddenTechCount}
+              </button>
+            )}
+          </div>
+        ) : (
+          /* Expanded: wrap freely, all tags visible, − button at end */
+          <div className="flex flex-wrap items-center gap-2">
+            {project.techStack.map((tech, idx) => (
+              <SkillTag
+                onClick={(event) => { event.stopPropagation(); onClickSkillTag(tech); }}
+                key={`${project.id}-${tech}-${idx}`}
+                label={tech}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={(event) => { event.stopPropagation(); setShowAllTech(false); }}
+              className="shrink-0 inline-flex h-[30px] min-w-[36px] items-center justify-center rounded-full bg-primary/15 px-2.5 text-[12px] font-bold leading-none text-primary border border-primary/5 transition-all duration-200 hover:bg-primary/25 active:scale-95"
+              aria-label="Show fewer tech skills"
+            >
+              −
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Text Content — flex-1 pushes description to bottom, equalises card heights */}
+      <div className="flex flex-col justify-start flex-1">
+        <h3 className="line-clamp-2 text-left text-[24px] font-extrabold leading-[1.15] text-black sm:text-[28px] md:text-[32px]">
           {project.title}
         </h3>
-        <p className="mt-3 line-clamp-3 text-left text-[14px] font-medium leading-relaxed text-secondary sm:text-[15px]">
+        <p className="mt-2.5 line-clamp-3 text-left text-[14px] font-medium leading-relaxed text-secondary sm:text-[15px]">
           {project.description}
         </p>
+      </div>
       </div>
     </article>
   );
@@ -461,6 +477,33 @@ export default function WorksPage({
     );
   }, [projects, selectedCategory, selectedProjectType, selectedTechStacks]);
 
+  function renderProjectTypePills(idPrefix: string, containerClassName = "") {
+    return (
+      <div
+        className={`flex items-center gap-1 rounded-full border border-neutral-200/70 bg-white p-1.5 shadow-sm ${containerClassName}`}
+      >
+        {projectTypeOptions.map((type) => {
+          const isActive = selectedProjectType === type;
+
+          return (
+            <button
+              key={`${idPrefix}-${type}`}
+              type="button"
+              onClick={() => setSelectedProjectType(type)}
+              className={`inline-flex h-8 flex-1 items-center justify-center rounded-full px-2 text-[12px] font-bold transition-all duration-200 ${
+                isActive
+                  ? "bg-primary text-white shadow-[0_4px_14px_rgba(128,94,255,0.35)]"
+                  : "text-neutral-500 hover:text-neutral-900 active:scale-95"
+              }`}
+            >
+              {type}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   function renderTechStackFilter(filterId: string, containerClassName = "") {
     const filteredTechOptions = techStackOptions.filter((skill) =>
       skill.toLowerCase().includes(techSearchQuery.toLowerCase())
@@ -470,11 +513,6 @@ export default function WorksPage({
       <div id={filterId} className={`flex flex-col rounded-2xl border border-neutral-100 bg-white p-5 shadow-xl shadow-neutral-100/40 ${containerClassName}`}>
         <div className="flex items-center justify-between pb-2 border-b border-neutral-50">
           <h3 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">Tech Stack</h3>
-          {selectedTechStacks.length > 0 && (
-            <span className="inline-flex h-5 items-center justify-center rounded-md bg-primary/10 px-2 text-[10px] font-bold text-primary">
-              {selectedTechStacks.length} Active
-            </span>
-          )}
         </div>
 
         <div className="relative mt-3">
@@ -565,23 +603,10 @@ export default function WorksPage({
     <section ref={pageRef} className="w-full bg-transparent px-6 pt-2 pb-12 lg:px-12 xl:px-20">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-8 lg:flex-row lg:gap-12">
         
-        {/* Left Category Selection Column Sidebar */}
+        {/* Left Category Sidebar */}
         <aside className="hidden w-full max-w-[240px] shrink-0 self-start lg:sticky lg:top-24 lg:block lg:max-h-[calc(100vh-7rem)] overflow-y-auto hide-scrollbar">
-          <div className="mb-5 bg-neutral-50/60 backdrop-blur-sm rounded-xl p-1.5 border border-neutral-200/50 flex items-center gap-1">
-            {projectTypeOptions.map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setSelectedProjectType(type)}
-                className={`flex-1 inline-flex h-7 items-center justify-center rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all duration-200 ${
-                  selectedProjectType === type
-                    ? "bg-primary text-white shadow-sm shadow-primary/20"
-                    : "text-neutral-500 hover:text-neutral-900 active:scale-95"
-                }`}
-              >
-                {type}
-              </button>
-            ))}
+          <div className="mb-5">
+            {renderProjectTypePills("desktop")}
           </div>
           
           <ul className="space-y-1.5">
@@ -621,10 +646,10 @@ export default function WorksPage({
               No projects found.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-10 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-10 xl:grid-cols-2 xl:auto-rows-fr">
               {filteredProjects.map((project) => (
-                <div key={project.id}>
-                  <ProjectCard
+                <div key={project.id} className="flex">
+                  <WorksProjectCard
                     project={project}
                     onOpenProjectDetails={onOpenProjectDetails}
                     onClickSkillTag={(skill) => {
@@ -655,7 +680,7 @@ export default function WorksPage({
           />
           <div className="absolute left-0 top-0 h-full w-full max-w-[300px] overflow-y-auto bg-white p-5 shadow-2xl border-r border-neutral-100 animate-slide-in">
             <div className="mb-5 flex items-center justify-between pb-2 border-b border-neutral-100">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400">Filters</h3>
+              <h3 className="text-[14px] font-bold uppercase tracking-wider text-neutral-400">Filters</h3>
               <button
                 type="button"
                 onClick={() => setIsMobileFilterOpen(false)}
@@ -668,25 +693,7 @@ export default function WorksPage({
 
             <div className="mb-6">
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">Project Type</p>
-              <div className="flex flex-wrap gap-1.5 bg-neutral-50 p-1 rounded-xl border border-neutral-200/60">
-                {projectTypeOptions.map((type) => (
-                  <button
-                    key={`mobile-${type}`}
-                    type="button"
-                    onClick={() => {
-                      setSelectedProjectType(type);
-                      setIsMobileFilterOpen(false);
-                    }}
-                    className={`flex-1 inline-flex h-7 items-center justify-center rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all ${
-                      selectedProjectType === type
-                        ? "bg-primary text-white shadow-sm"
-                        : "text-neutral-500 hover:text-neutral-900"
-                    }`}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
+              {renderProjectTypePills("mobile")}
             </div>
 
             <div className="mb-6">
