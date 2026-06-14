@@ -1,6 +1,6 @@
 # Web Portfolio
 
-A modern, full-stack developer portfolio built with Next.js, React, TypeScript, Tailwind CSS, and Supabase. This project showcases your works, skills, milestones, and more, with a clean UI and dynamic content management.
+A modern, full-stack developer portfolio built with Next.js, React, TypeScript, Tailwind CSS, and Supabase. This project showcases works, skills, milestones, and more, with a clean UI and dynamic content management.
 
 ## Features
 - **Next.js 16** with App Router and TypeScript
@@ -57,7 +57,7 @@ my-pro-portfolio/
    - Connect your repo to [Vercel](https://vercel.com/) and set the same environment variables.
 
 ## Customization
-- Update your profile, projects, milestones, etc. in Supabase.
+- Update profile, projects, milestones, etc. in Supabase.
 - Edit components in `/components` to change layout or add features.
 - Update styles in `app/globals.css` or extend Tailwind config.
 

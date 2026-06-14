@@ -242,6 +242,19 @@ export function prefetchAboutPageData(): Promise<AboutPageCacheData> {
   return request;
 }
 
+function isSupabaseUrl(url: string | null): boolean {
+  if (!url) return false;
+  try {
+    const { hostname } = new URL(url);
+    return (
+      hostname.endsWith(".supabase.co") ||
+      hostname.endsWith(".supabase.in")
+    );
+  } catch {
+    return false;
+  }
+}
+
 function normalizeToolCategory(value: string | null) {
   const category = (value || "").toLowerCase().trim();
 
@@ -634,7 +647,11 @@ export default function AboutPage() {
                       {item.credential_url ? (
                         <button
                           type="button"
-                          onClick={() => window.open(item.credential_url!, "_blank", "noopener,noreferrer")}
+                          onClick={() =>
+                            isSupabaseUrl(item.credential_url)
+                              ? setActiveProofUrl(item.credential_url)
+                              : window.open(item.credential_url!, "_blank", "noopener,noreferrer")
+                          }
                           className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-white transition-all duration-200 hover:bg-neutral-800 active:scale-95 shadow-sm shadow-neutral-900/10"
                         >
                           <ArrowUpRight size={14} />
@@ -799,7 +816,7 @@ export default function AboutPage() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Experience proof preview"
+          aria-label="Attachment preview"
           className="fixed inset-0 z-[120] flex items-center justify-center bg-neutral-950/60 backdrop-blur-xs px-4 animate-fade-in"
           onClick={() => setActiveProofUrl(null)}
         >
