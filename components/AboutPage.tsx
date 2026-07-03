@@ -1,6 +1,7 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../lib/supabase";
 import { PageContext } from "./RootLayoutClient";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
@@ -24,6 +25,38 @@ const toolGroups = [
 ];
 
 const ABOUT_PAGE_CACHE_KEY = "about_page_cache_v3";
+
+// --- Framer Motion variants (additive animation layer; existing
+// IntersectionObserver-driven reveal classes on sections are left in
+// place untouched, these variants animate the items *within* each
+// section so lists/grids get a nice staggered entrance too). ---
+const fadeUpItemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: (i: number = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, ease: "easeOut", delay: Math.min(i, 8) * 0.06 },
+  }),
+};
+
+const staggerContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.06 },
+  },
+};
+
+const modalOverlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2, ease: "easeOut" } },
+  exit: { opacity: 0, transition: { duration: 0.15, ease: "easeIn" } },
+};
+
+const modalPanelVariants = {
+  hidden: { opacity: 0, scale: 0.94, y: 12 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" } },
+  exit: { opacity: 0, scale: 0.96, y: 8, transition: { duration: 0.15, ease: "easeIn" } },
+};
 
 type ProfileData = {
   name: string | null;
@@ -110,136 +143,125 @@ type AboutPageCacheData = {
   milestones: MilestoneData[];
 };
 
-let aboutPageMemoryCache: AboutPageCacheData | null = null;
-let aboutPagePending: Promise<AboutPageCacheData> | null = null;
-
-function readAboutPageCache(): AboutPageCacheData | null {
-  if (typeof window === "undefined") return null;
-  const rawValue = window.localStorage.getItem(ABOUT_PAGE_CACHE_KEY);
-  if (!rawValue) return null;
+// --- Global Prefetch Utility ---
+// Cache-First Fetching Architecture (matches HomePage.tsx): the page reads
+// localStorage synchronously on mount for an instant paint, then this
+// function hits Supabase in the background; state is only patched in if the
+// fresh payload actually differs from what was cached. Only the columns
+// actually rendered on this page are selected, keeping each payload small.
+export async function prefetchAboutPageData(): Promise<AboutPageCacheData | null> {
   try {
-    return JSON.parse(rawValue) as AboutPageCacheData;
-  } catch {
-    return null;
-  }
-}
-
-function writeAboutPageCache(value: AboutPageCacheData) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(ABOUT_PAGE_CACHE_KEY, JSON.stringify(value));
-}
-
-async function fetchAboutPageDataFromServer(): Promise<AboutPageCacheData> {
-  const [
-    profileResult,
-    educationResult,
-    certificationsResult,
-    experienceResult,
-    techStackResult,
-    experienceSkillsResult,
-    specializationsResult,
-    projectCountResult,
-    milestonesResult,
-  ] = await Promise.all([
-    supabase
+    const profileReq = supabase
       .from("profile")
       .select("name, about_summary, resume_download_url, cv_download_url")
       .limit(1)
-      .maybeSingle(),
-    supabase
+      .maybeSingle();
+    const educationReq = supabase
       .from("education")
       .select("degree, school, period, elective, sort_order")
-      .order("sort_order", { ascending: true }),
-    supabase
+      .order("sort_order", { ascending: true });
+    const certificationsReq = supabase
       .from("certifications")
-      .select("name, issuer, date_earned, credential_url"),
-    supabase
+      .select("name, issuer, date_earned, credential_url");
+    const experienceReq = supabase
       .from("experience")
       .select("id, role, company, location, period, description, sort_order, proof_url")
-      .order("sort_order", { ascending: true }),
-    supabase
+      .order("sort_order", { ascending: true });
+    const techStackReq = supabase
       .from("tech_stack")
-      .select("id, category, skill_name"),
-    supabase
+      .select("id, category, skill_name");
+    const experienceSkillsReq = supabase
       .from("experience_skills")
-      .select("experience_id, skill_id, tech_stack(skill_name)"),
-    supabase
+      .select("experience_id, skill_id, tech_stack(skill_name)");
+    const specializationsReq = supabase
       .from("specializations")
       .select("id, title, description")
       .eq("is_active", true)
-      .order("sort_order", { ascending: true }),
-    supabase.from("projects").select("id", { count: "exact", head: true }),
-    supabase.from("milestones").select("label, value"),
-  ]);
+      .order("sort_order", { ascending: true });
+    const projectCountReq = supabase.from("projects").select("id", { count: "exact", head: true });
+    const milestonesReq = supabase.from("milestones").select("label, value");
 
-  const profileData = (profileResult.data as ProfileData | null) || null;
-  const educationData = (educationResult.data as EducationData[]) || [];
-  const certificationsData = (certificationsResult.data as CertificationData[]) || [];
-  const experiencesData = (experienceResult.data || []) as ExperienceData[];
-  const experienceSkills = (experienceSkillsResult.data || []) as ExperienceSkillData[];
-  const techStackData = (techStackResult.data || []) as TechStackData[];
-  const specializationsData = (specializationsResult.data || []) as SpecializationData[];
+    const [
+      profileResult,
+      educationResult,
+      certificationsResult,
+      experienceResult,
+      techStackResult,
+      experienceSkillsResult,
+      specializationsResult,
+      projectCountResult,
+      milestonesResult,
+    ] = await Promise.all([
+      profileReq,
+      educationReq,
+      certificationsReq,
+      experienceReq,
+      techStackReq,
+      experienceSkillsReq,
+      specializationsReq,
+      projectCountReq,
+      milestonesReq,
+    ]);
 
-  const skillByExperience = new Map<string, string[]>();
-  experienceSkills.forEach((row) => {
-    const skill = row.tech_stack?.skill_name?.trim() || "";
-    if (!skill) return;
-    const current = skillByExperience.get(row.experience_id) || [];
-    current.push(skill);
-    skillByExperience.set(row.experience_id, current);
-  });
+    const profileData = (profileResult.data as ProfileData | null) || null;
+    const educationData = (educationResult.data as EducationData[]) || [];
+    const certificationsData = (certificationsResult.data as CertificationData[]) || [];
+    const experiencesData = (experienceResult.data || []) as ExperienceData[];
+    const experienceSkills = (experienceSkillsResult.data || []) as ExperienceSkillData[];
+    const techStackData = (techStackResult.data || []) as TechStackData[];
+    const specializationsData = (specializationsResult.data || []) as SpecializationData[];
 
-  const mappedExperience: ExperienceWithSkills[] = experiencesData.map((item) => ({
-    id: item.id,
-    role: item.role || "",
-    company: item.company || "",
-    location: item.location || "",
-    date: item.period || "",
-    summary: item.description || "",
-    proofUrl: item.proof_url,
-    skills: skillByExperience.get(item.id) || [],
-  }));
+    const skillByExperience = new Map<string, string[]>();
+    experienceSkills.forEach((row) => {
+      const skill = row.tech_stack?.skill_name?.trim() || "";
+      if (!skill) return;
+      const current = skillByExperience.get(row.experience_id) || [];
+      current.push(skill);
+      skillByExperience.set(row.experience_id, current);
+    });
 
-  const projectCount = projectCountResult.count || 0;
-  const milestones = ((milestonesResult.data || []) as MilestoneData[]).filter(
-    (item) => (item.label || "").trim() || (item.value || "").trim()
-  );
+    const mappedExperience: ExperienceWithSkills[] = experiencesData.map((item) => ({
+      id: item.id,
+      role: item.role || "",
+      company: item.company || "",
+      location: item.location || "",
+      date: item.period || "",
+      summary: item.description || "",
+      proofUrl: item.proof_url,
+      skills: skillByExperience.get(item.id) || [],
+    }));
 
-  const fallbackMilestones: MilestoneData[] = milestones.length
-    ? milestones
-    : [
-        { label: "Experience", value: `${experiencesData.length}` },
-        { label: "Projects", value: `${projectCount}` },
-      ];
+    const projectCount = projectCountResult.count || 0;
+    const rawMilestones = ((milestonesResult.data || []) as MilestoneData[]).filter(
+      (item) => (item.label || "").trim() || (item.value || "").trim()
+    );
 
-  return {
-    profile: profileData,
-    education: educationData,
-    certificationList: certificationsData,
-    experienceList: mappedExperience,
-    toolSkills: techStackData,
-    specializationList: specializationsData,
-    milestones: fallbackMilestones,
-  };
-}
+    const fallbackMilestones: MilestoneData[] = rawMilestones.length
+      ? rawMilestones
+      : [
+          { label: "Experience", value: `${experiencesData.length}` },
+          { label: "Projects", value: `${projectCount}` },
+        ];
 
-export function prefetchAboutPageData(): Promise<AboutPageCacheData> {
-  if (aboutPageMemoryCache) return Promise.resolve(aboutPageMemoryCache);
-  if (aboutPagePending) return aboutPagePending;
+    const freshData: AboutPageCacheData = {
+      profile: profileData,
+      education: educationData,
+      certificationList: certificationsData,
+      experienceList: mappedExperience,
+      toolSkills: techStackData,
+      specializationList: specializationsData,
+      milestones: fallbackMilestones,
+    };
 
-  const request = (async () => {
-    try {
-      const nextData = await fetchAboutPageDataFromServer();
-      aboutPageMemoryCache = nextData;
-      writeAboutPageCache(nextData);
-      return nextData;
-    } finally {
-      aboutPagePending = null;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ABOUT_PAGE_CACHE_KEY, JSON.stringify(freshData));
     }
-  })();
 
-  aboutPagePending = request;
-  return request;
+    return freshData;
+  } catch (error) {
+    console.error("Failed to prefetch about data:", error);
+    return null;
+  }
 }
 
 function isSupabaseUrl(url: string | null): boolean {
@@ -260,7 +282,7 @@ function normalizeToolCategory(value: string | null) {
 
   // 1. DATABASE & SERVICES
   if (
-    category.includes("database") || 
+    category.includes("database") ||
     category.includes("services")
   ) {
     return "DATABASE & SERVICES";
@@ -293,10 +315,65 @@ function normalizeToolCategory(value: string | null) {
 
 function SectionBadge({ label }: { label: string }) {
   return (
-    <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[color-mix(in_srgb,var(--color-primary)_12%,white)] px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary border border-primary/10">
+    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/10 bg-[color-mix(in_srgb,var(--color-primary)_12%,white)] px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
       <span className="text-[14px] leading-none">◔</span>
       <span>{label}</span>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bento primitives
+//
+// Every card on the page (milestones, credentials, experience, tools,
+// specializations) shares this same glass surface + hover-glow grammar, so
+// the "bento grid" reads as one cohesive system rather than several
+// unrelated card styles bolted together.
+// ---------------------------------------------------------------------------
+
+function BentoCard({
+  children,
+  className = "",
+  dark = false,
+  glow = true,
+  as: Tag = "article",
+}: {
+  children: ReactNode;
+  className?: string;
+  dark?: boolean;
+  glow?: boolean;
+  as?: "article" | "div";
+}) {
+  return (
+    <Tag className={`group relative ${className}`}>
+      {glow ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -inset-[1px] rounded-[inherit] bg-gradient-to-br from-primary/30 via-primary/5 to-transparent opacity-0 blur-md transition-opacity duration-500 group-hover:opacity-100"
+        />
+      ) : null}
+      <div
+        className={`relative flex h-full flex-col rounded-3xl border backdrop-blur-xl transition-all duration-300 ease-out group-hover:-translate-y-1 ${
+          dark
+            ? "border-neutral-800/60 bg-neutral-900/90 shadow-[0_10px_36px_-14px_rgba(0,0,0,0.55)] group-hover:shadow-[0_24px_50px_-16px_rgba(0,0,0,0.6)]"
+            : "border-neutral-200/50 bg-white/70 shadow-[0_10px_36px_-18px_rgba(15,15,15,0.14)] group-hover:border-primary/25 group-hover:bg-white/85 group-hover:shadow-[0_24px_50px_-20px_rgba(15,15,15,0.22)]"
+        }`}
+      >
+        {children}
+      </div>
+    </Tag>
+  );
+}
+
+function SkeletonLine({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-full bg-neutral-200/70 ${className}`} />;
+}
+
+function SkeletonCard({ className = "" }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-3xl border border-neutral-200/50 bg-white/60 backdrop-blur-xl ${className}`}
+    />
   );
 }
 
@@ -305,46 +382,44 @@ export default function AboutPage() {
   const pageRef = useRef<HTMLElement | null>(null);
   const scrollTabsRef = useRef<HTMLDivElement | null>(null);
 
-  const [cachedPageData] = useState<AboutPageCacheData | null>(() => {
-    const initialData = aboutPageMemoryCache || readAboutPageCache();
-    if (initialData) aboutPageMemoryCache = initialData;
-    return initialData;
-  });
-
-  const [profile, setProfile] = useState<ProfileData | null>(cachedPageData?.profile || null);
-  const [education, setEducation] = useState<EducationData[]>(cachedPageData?.education || []);
-  const [certificationList, setCertificationList] = useState<CertificationData[]>(cachedPageData?.certificationList || []);
-  const [experienceList, setExperienceList] = useState<ExperienceWithSkills[]>(cachedPageData?.experienceList || []);
-  const [toolSkills, setToolSkills] = useState<TechStackData[]>(cachedPageData?.toolSkills || []);
-  const [specializationList, setSpecializationList] = useState<SpecializationData[]>(cachedPageData?.specializationList || []);
-  const [milestones, setMilestones] = useState<MilestoneData[]>(cachedPageData?.milestones || []);
+  const [data, setData] = useState<AboutPageCacheData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeSidebarItem, setActiveSidebarItem] = useState(sidebarItems[0].id);
   const [activeProofUrl, setActiveProofUrl] = useState<string | null>(null);
 
+  // Cache-First Fetching Architecture (same pattern as HomePage.tsx):
+  // read localStorage synchronously on mount so the page paints instantly
+  // for a returning visitor, then revalidate against Supabase in the
+  // background and only swap in the fresh payload if it actually changed.
   useEffect(() => {
-    let isUnmounted = false;
+    let isMounted = true;
 
-    const applyAboutData = (nextData: AboutPageCacheData) => {
-      setProfile(nextData.profile);
-      setEducation(nextData.education);
-      setCertificationList(nextData.certificationList);
-      setExperienceList(nextData.experienceList);
-      setToolSkills(nextData.toolSkills);
-      setSpecializationList(nextData.specializationList);
-      setMilestones(nextData.milestones);
-    };
-
-    async function fetchAboutData() {
-      const initialCachedData = aboutPageMemoryCache || cachedPageData;
-      if (initialCachedData) applyAboutData(initialCachedData);
-      const nextData = await prefetchAboutPageData();
-      if (isUnmounted) return;
-      applyAboutData(nextData);
+    const cached = window.localStorage.getItem(ABOUT_PAGE_CACHE_KEY);
+    if (cached) {
+      setData(JSON.parse(cached));
+      setIsLoading(false);
     }
 
-    void fetchAboutData();
-    return () => { isUnmounted = true; };
-  }, [cachedPageData]);
+    prefetchAboutPageData().then((freshData) => {
+      if (isMounted && freshData) {
+        const freshString = JSON.stringify(freshData);
+        if (freshString !== cached) {
+          setData(freshData);
+        }
+        if (!cached) setIsLoading(false);
+      }
+    });
+
+    return () => { isMounted = false; };
+  }, []);
+
+  const profile = data?.profile || null;
+  const education = data?.education || [];
+  const certificationList = data?.certificationList || [];
+  const experienceList = data?.experienceList || [];
+  const toolSkills = data?.toolSkills || [];
+  const specializationList = data?.specializationList || [];
+  const milestones = data?.milestones || [];
 
   const aboutSummary = profile?.about_summary?.trim() || "";
   const displayAboutSummary = aboutSummary || "No about summary yet.";
@@ -462,7 +537,7 @@ export default function AboutPage() {
 
     revealElements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [experienceList.length, certificationList.length, groupedTools.length, specializationList.length]);
+  }, [experienceList.length, certificationList.length, groupedTools.length, specializationList.length, isLoading]);
 
   useEffect(() => {
     const rootElement = pageRef.current;
@@ -480,7 +555,7 @@ export default function AboutPage() {
     <section ref={pageRef} className="w-full bg-transparent px-4 pt-1 pb-12 sm:px-6 lg:px-12 xl:px-20">
 
       {/* Mobile Swipe Segment Tabs */}
-      <div className="sticky top-0 z-50 -mx-4 mb-6 bg-white/80 backdrop-blur-md border-b border-neutral-100 px-4 py-2.5 lg:hidden">
+      <div className="sticky top-0 z-50 -mx-4 mb-6 border-b border-neutral-200/50 bg-white/75 px-4 py-2.5 backdrop-blur-md lg:hidden">
         <div
           ref={scrollTabsRef}
           className="hide-scrollbar flex items-center gap-2 overflow-x-auto scroll-smooth"
@@ -494,7 +569,7 @@ export default function AboutPage() {
               className={`h-9 shrink-0 rounded-full px-4 text-xs font-bold tracking-wide transition-all duration-200 ${
                 activeSidebarItem === item.id
                   ? "bg-primary text-white shadow-sm shadow-primary/20"
-                  : "bg-neutral-50 border border-neutral-200/50 text-neutral-600 hover:border-neutral-300"
+                  : "border border-neutral-200/60 bg-neutral-50/80 text-neutral-600 hover:border-neutral-300"
               }`}
             >
               {item.label}
@@ -508,15 +583,22 @@ export default function AboutPage() {
         {/* Desktop Sticky Sidebar */}
         <aside
           data-about-reveal
-          className="hidden w-full max-w-[240px] shrink-0 self-start translate-y-5 opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block"
+          className="hidden w-full max-w-[240px] shrink-0 translate-y-5 self-start opacity-0 transition-all duration-700 ease-out lg:sticky lg:top-24 lg:block"
         >
-          <h2 className="mb-6 text-2xl font-extrabold tracking-tight text-neutral-900">About</h2>
-          <ul className="space-y-2">
-            {sidebarItems.map((item) => (
-              <li key={item.id}>
-                <button
+          <h2 className="mb-6 text-[28px] font-extrabold tracking-tighter text-neutral-900">About</h2>
+          <motion.ul
+            className="space-y-2"
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainerVariants}
+          >
+            {sidebarItems.map((item, index) => (
+              <motion.li key={item.id} custom={index} variants={fadeUpItemVariants}>
+                <motion.button
                   type="button"
                   onClick={() => goToSection(item.id, true)}
+                  whileHover={{ x: 3 }}
+                  whileTap={{ scale: 0.97 }}
                   className={`h-11 w-full rounded-xl border px-4 text-left text-sm transition-all duration-200 ${
                     activeSidebarItem === item.id
                       ? "border-primary bg-primary text-white font-bold shadow-md shadow-primary/20 active:translate-y-[1px]"
@@ -524,10 +606,10 @@ export default function AboutPage() {
                   }`}
                 >
                   {item.label}
-                </button>
-              </li>
+                </motion.button>
+              </motion.li>
             ))}
-          </ul>
+          </motion.ul>
         </aside>
 
         {/* Content Body Area */}
@@ -537,273 +619,434 @@ export default function AboutPage() {
           <section
             id="profile"
             data-about-reveal
-            className="scroll-mt-24 flex translate-y-5 flex-col gap-8 opacity-0 transition-all duration-700 ease-out lg:flex-row lg:justify-between lg:items-start"
+            className="scroll-mt-24 flex translate-y-5 flex-col gap-8 opacity-0 transition-all duration-700 ease-out lg:flex-row lg:items-start lg:justify-between"
           >
             <div className="max-w-[700px] flex-1">
               <SectionBadge label="About Me" />
-              {aboutParagraphs.length === 0 ? (
-                <p className="mt-4 text-base font-medium leading-relaxed text-neutral-600 sm:text-lg text-justify">
+
+              {isLoading ? (
+                <div className="mt-4 space-y-3">
+                  <SkeletonLine className="h-4 w-full" />
+                  <SkeletonLine className="h-4 w-[92%]" />
+                  <SkeletonLine className="h-4 w-[80%]" />
+                  <SkeletonLine className="h-4 w-[60%]" />
+                </div>
+              ) : aboutParagraphs.length === 0 ? (
+                <p className="mt-4 text-base font-medium leading-relaxed text-neutral-600 text-justify sm:text-lg">
                   {displayAboutSummary}
                 </p>
               ) : (
-                <div className="mt-4 space-y-4 text-base font-medium leading-relaxed text-neutral-600 sm:text-lg text-justify">
+                <div className="mt-4 space-y-4 text-base font-medium leading-relaxed text-neutral-600 text-justify sm:text-lg">
                   {aboutParagraphs.map((paragraph, index) => (
                     <p key={`${paragraph.slice(0, 20)}-${index}`}>{paragraph}</p>
                   ))}
                 </div>
               )}
 
-              <div className="mt-8 flex flex-col sm:flex-row gap-3">
-                <button
+              <motion.div
+                className="mt-8 flex flex-col gap-3 sm:flex-row"
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.6 }}
+                transition={{ duration: 0.45, ease: "easeOut", delay: 0.15 }}
+              >
+                <motion.button
                   type="button"
                   onClick={() => window.open(profile?.resume_download_url || "", "_blank", "noopener,noreferrer")}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-neutral-900 px-5 text-sm font-bold text-white transition-all duration-200 hover:bg-neutral-800 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 shadow-sm"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-neutral-900 px-5 text-sm font-bold text-white shadow-sm transition-colors duration-200 hover:bg-neutral-800 disabled:pointer-events-none disabled:opacity-60"
                 >
                   <Download size={15} /> Download Resume
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   type="button"
                   onClick={() => window.open(profile?.cv_download_url || "", "_blank", "noopener,noreferrer")}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-primary bg-white px-5 text-sm font-bold text-primary transition-all duration-200 hover:bg-primary/5 active:scale-[0.98] shadow-sm"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-primary bg-white px-5 text-sm font-bold text-primary shadow-sm transition-colors duration-200 hover:bg-primary/5"
                 >
                   <Download size={15} /> Download CV
-                </button>
-              </div>
+                </motion.button>
+              </motion.div>
             </div>
 
             {/* Milestones Panel */}
-            <div className="w-full grid grid-cols-2 gap-3.5 lg:grid-cols-1 lg:max-w-[260px] shrink-0">
-              {milestones.length === 0 ? (
-                <article className="col-span-2 lg:col-span-1 rounded-2xl border border-primary bg-white px-5 py-4 shadow-[4px_4px_0px_0px_var(--color-primary)]">
-                  <p className="text-xs font-medium text-neutral-500">No milestones yet.</p>
-                </article>
+            <div className="grid w-full shrink-0 grid-cols-2 gap-3.5 lg:max-w-[260px] lg:grid-cols-1">
+              {isLoading ? (
+                <>
+                  <SkeletonCard className="h-[84px]" />
+                  <SkeletonCard className="h-[84px]" />
+                </>
+              ) : milestones.length === 0 ? (
+                <BentoCard className="col-span-2 lg:col-span-1">
+                  <div className="px-5 py-4">
+                    <p className="text-xs font-medium text-neutral-500">No milestones yet.</p>
+                  </div>
+                </BentoCard>
               ) : (
                 milestones.map((item, index) => (
-                  <article
+                  <motion.div
                     key={`${item.label || "milestone"}-${item.value || "value"}-${index}`}
-                    className="rounded-2xl border border-primary bg-white px-5 py-4 shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_var(--color-primary)] active:translate-y-0"
-                  >
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 truncate">{item.label || "Milestone"}</p>
-                    <p className="mt-1 text-3xl font-extrabold leading-none text-primary">{item.value || "0"}</p>
-                  </article>
+                    custom={index}
+                    initial="hidden"
+                    animate="visible" // <-- Change to animate
+                    variants={fadeUpItemVariants}
+                    whileHover={{ y: -3 }}
+                          >
+                    <BentoCard>
+                      <div className="px-5 py-4">
+                        <p className="truncate text-[10px] font-bold uppercase tracking-wider text-neutral-400">{item.label || "Milestone"}</p>
+                        <p className="mt-1 text-3xl font-extrabold leading-none tracking-tight text-primary">{item.value || "0"}</p>
+                      </div>
+                    </BentoCard>
+                  </motion.div>
                 ))
               )}
             </div>
           </section>
 
-          {/* Credentials Section */}
+          {/* Credentials Section — bento: education (wide cell) + certifications (narrow cell) */}
           <section
             id="credentials"
             data-about-reveal
             className="scroll-mt-24 translate-y-5 opacity-0 transition-all duration-700 ease-out"
           >
             <SectionBadge label="Credentials" />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mt-4">
+            <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-12">
 
-              <article className="rounded-[32px] border border-neutral-100 bg-white p-6 shadow-sm shadow-neutral-100">
-                <h3 className="text-lg font-bold text-neutral-900 tracking-tight">Education</h3>
-                <div className="mt-4 space-y-4 rounded-2xl bg-neutral-50/50 p-4 border border-neutral-100/50">
-                  {education.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No education data yet.</p>
-                  ) : education.map((item, index) => (
-                    <div
-                      key={`${item.degree || "degree"}-${item.school || "school"}-${item.period || "period"}-${index}`}
-                      className="border-b border-neutral-100 pb-3 last:border-0 last:pb-0"
-                    >
-                      {item.degree ? (
-                        <p className="text-sm font-bold text-neutral-800 leading-snug">{item.degree}</p>
-                      ) : null}
-                      {item.school || item.period ? (
-                        <p className="mt-1 text-xs font-medium text-neutral-500">
-                          {item.school || ""} {item.period ? `(${item.period})` : ""}
-                        </p>
-                      ) : null}
-                      {item.elective ? (
-                        <span className="mt-2 inline-block rounded-md bg-[color-mix(in_srgb,var(--color-primary)_12%,white)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary border border-primary/5">
-                          {item.elective}
-                        </span>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </article>
-
-              <article className="rounded-[32px] border border-neutral-100 bg-white p-6 shadow-sm shadow-neutral-100">
-                <h3 className="text-lg font-bold text-neutral-900 tracking-tight">Certifications</h3>
-                <div className="mt-4 space-y-2.5">
-                  {certificationList.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No certifications yet.</p>
-                  ) : certificationList.map((item, index) => (
-                    <div
-                      key={`${item.name}-${index}`}
-                      className="flex items-center justify-between gap-4 rounded-xl bg-neutral-50/50 p-3 border border-neutral-100/50 transition-all duration-200 hover:border-neutral-200/60"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-neutral-800 truncate">{item.name || ""}</p>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mt-0.5 truncate">
-                          {(item.issuer || "").toUpperCase()}{item.date_earned ? ` - ${item.date_earned}` : ""}
-                        </p>
+              {isLoading ? (
+                <>
+                  <SkeletonCard className="h-64 lg:col-span-7" />
+                  <SkeletonCard className="h-64 lg:col-span-5" />
+                </>
+              ) : (
+                <>
+                  <BentoCard className="lg:col-span-7">
+                    <div className="p-6">
+                      <h3 className="text-lg font-bold tracking-tight text-neutral-900">Education</h3>
+                      <div className="mt-4 space-y-4 rounded-2xl border border-neutral-100/60 bg-neutral-50/50 p-4">
+                        {education.length === 0 ? (
+                          <p className="text-xs text-neutral-500">No education data yet.</p>
+                        ) : education.map((item, index) => (
+                          <motion.div
+                            key={`${item.degree || "degree"}-${item.school || "school"}-${item.period || "period"}-${index}`}
+                            custom={index}
+                            initial="hidden"
+                            whileInView="visible"
+                            viewport={{ once: true, amount: 0.4 }}
+                            variants={fadeUpItemVariants}
+                            className="border-b border-neutral-100 pb-3 last:border-0 last:pb-0"
+                          >
+                            {item.degree ? (
+                              <p className="text-sm font-bold leading-snug text-neutral-800">{item.degree}</p>
+                            ) : null}
+                            {item.school || item.period ? (
+                              <p className="mt-1 text-xs font-medium text-neutral-500">
+                                {item.school || ""} {item.period ? `(${item.period})` : ""}
+                              </p>
+                            ) : null}
+                            {item.elective ? (
+                              <span className="mt-2 inline-block rounded-md border border-primary/5 bg-[color-mix(in_srgb,var(--color-primary)_12%,white)] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                                {item.elective}
+                              </span>
+                            ) : null}
+                          </motion.div>
+                        ))}
                       </div>
-                      {item.credential_url ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            isSupabaseUrl(item.credential_url)
-                              ? setActiveProofUrl(item.credential_url)
-                              : window.open(item.credential_url!, "_blank", "noopener,noreferrer")
-                          }
-                          className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-white transition-all duration-200 hover:bg-neutral-800 active:scale-95 shadow-sm shadow-neutral-900/10"
-                        >
-                          <ArrowUpRight size={14} />
-                        </button>
-                      ) : (
-                        <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-neutral-200 text-neutral-400">
-                          <ArrowUpRight size={14} />
-                        </span>
-                      )}
                     </div>
-                  ))}
-                </div>
-              </article>
+                  </BentoCard>
+
+                  <BentoCard className="lg:col-span-5">
+                    <div className="p-6">
+                      <h3 className="text-lg font-bold tracking-tight text-neutral-900">Certifications</h3>
+                      <div className="mt-4 space-y-2.5">
+                        {certificationList.length === 0 ? (
+                          <p className="text-xs text-neutral-500">No certifications yet.</p>
+                        ) : certificationList.map((item, index) => (
+                          <motion.div
+                            key={`${item.name}-${index}`}
+                            custom={index}
+                            initial="hidden"
+                            whileInView="visible"
+                            viewport={{ once: true, amount: 0.4 }}
+                            variants={fadeUpItemVariants}
+                            whileHover={{ x: 2 }}
+                            className="flex items-center justify-between gap-4 rounded-xl border border-neutral-100/50 bg-neutral-50/50 p-3 transition-all duration-200 hover:border-neutral-200/60"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-bold text-neutral-800">{item.name || ""}</p>
+                              <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                                {(item.issuer || "").toUpperCase()}{item.date_earned ? ` - ${item.date_earned}` : ""}
+                              </p>
+                            </div>
+                            {item.credential_url ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  isSupabaseUrl(item.credential_url)
+                                    ? setActiveProofUrl(item.credential_url)
+                                    : window.open(item.credential_url!, "_blank", "noopener,noreferrer")
+                                }
+                                className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-neutral-900 text-white shadow-sm shadow-neutral-900/10 transition-all duration-200 hover:bg-neutral-800 active:scale-95"
+                              >
+                                <ArrowUpRight size={14} />
+                              </button>
+                            ) : (
+                              <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-neutral-200 text-neutral-400">
+                                <ArrowUpRight size={14} />
+                              </span>
+                            )}
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  </BentoCard>
+                </>
+              )}
             </div>
           </section>
 
-          {/* Experience Section */}
+          {/* Experience Section — chronological timeline, not a bento grid (order is the information) */}
           <section
             id="experience"
             data-about-reveal
             className="scroll-mt-24 translate-y-5 opacity-0 transition-all duration-700 ease-out"
           >
             <SectionBadge label="My Experience" />
-            <div className="space-y-4 mt-4">
-              {experienceList.length === 0 ? (
-                <article className="rounded-xl bg-white p-5 border border-neutral-100">
-                  <p className="text-xs text-neutral-500">No experience data yet.</p>
-                </article>
+            <div className="mt-4 space-y-4">
+              {isLoading ? (
+                <>
+                  <SkeletonCard className="h-40" />
+                  <SkeletonCard className="h-40" />
+                </>
+              ) : experienceList.length === 0 ? (
+                <BentoCard>
+                  <div className="p-5">
+                    <p className="text-xs text-neutral-500">No experience data yet.</p>
+                  </div>
+                </BentoCard>
               ) : experienceList.map((item, index) => (
-                <article
+                <motion.div
                   key={item.id}
-                  style={{ transitionDelay: `${Math.min(index, 6) * 50}ms` }}
-                  className="rounded-2xl border border-primary bg-white p-5 shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_var(--color-primary)] active:translate-y-0"
+                  custom={index}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true, amount: 0.25 }}
+                  variants={fadeUpItemVariants}
+                  whileHover={{ y: -3 }}
                 >
-                  <div className="mb-3 flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4 w-full">
-                    <div>
-                      {item.role ? (
-                        <p className="text-base font-bold text-neutral-900 tracking-tight">{item.role}</p>
-                      ) : null}
-                      {item.company ? (
-                        <p className="text-sm font-semibold text-primary mt-0.5">{item.company}</p>
+                <BentoCard
+                  className=""
+                >
+                  <div
+                    style={{ transitionDelay: `${Math.min(index, 6) * 50}ms` }}
+                    className="p-5"
+                  >
+                    <div className="mb-3 flex w-full flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4">
+                      <div>
+                        {item.role ? (
+                          <p className="text-base font-bold tracking-tight text-neutral-900">{item.role}</p>
+                        ) : null}
+                        {item.company ? (
+                          <p className="mt-0.5 text-sm font-semibold text-primary">{item.company}</p>
+                        ) : null}
+                      </div>
+                      {(item.location || item.date) ? (
+                        <p className="pt-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400 sm:text-right">
+                          {item.location}{item.location && item.date ? " | " : ""}{item.date}
+                        </p>
                       ) : null}
                     </div>
-                    {(item.location || item.date) ? (
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 sm:text-right pt-0.5">
-                        {item.location}{item.location && item.date ? " | " : ""}{item.date}
-                      </p>
+                    {item.summary ? (
+                      <p className="text-sm font-medium leading-relaxed text-neutral-500 text-justify">{item.summary}</p>
+                    ) : null}
+                    {item.skills.length > 0 ? (
+                      <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                        {item.skills.map((skill, skillIndex) => (
+                          <SkillTag
+                            onClick={() => handleSkillTagClick(skill)}
+                            key={`${item.id}-${skill}-${skillIndex}`}
+                            label={skill}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                    {item.proofUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setActiveProofUrl(item.proofUrl)}
+                        className="mt-4 inline-flex h-8 items-center rounded-lg border border-primary bg-white px-4 text-[10px] font-bold uppercase tracking-wider text-primary transition-all duration-200 hover:bg-primary/5 active:scale-[0.98]"
+                      >
+                        View Attachment
+                      </button>
                     ) : null}
                   </div>
-                  {item.summary ? (
-                    <p className="text-sm font-medium leading-relaxed text-neutral-500 text-justify">{item.summary}</p>
-                  ) : null}
-                  {item.skills.length > 0 ? (
-                    <div className="mt-4 flex flex-wrap items-center gap-1.5">
-                      {item.skills.map((skill, skillIndex) => (
-                        <SkillTag
-                          onClick={() => handleSkillTagClick(skill)}
-                          key={`${item.id}-${skill}-${skillIndex}`}
-                          label={skill}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                  {item.proofUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => setActiveProofUrl(item.proofUrl)}
-                      className="mt-4 inline-flex h-8 items-center rounded-lg border border-primary bg-white px-4 text-[10px] font-bold uppercase tracking-wider text-primary transition-all duration-200 hover:bg-primary/5 active:scale-[0.98]"
-                    >
-                      View Attachment
-                    </button>
-                  ) : null}
-                </article>
+                </BentoCard>
+                </motion.div>
               ))}
             </div>
           </section>
 
-          {/* Tech Stacks Section */}
-          <section
-            id="tech-stacks"
-            data-about-reveal
-            className="scroll-mt-24 translate-y-5 opacity-0 transition-all duration-700 ease-out"
-          >
-            <SectionBadge label="What I Use" />
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
-              {groupedTools.map((group) => (
-                <article
-                  key={group.title}
-                  className={`rounded-2xl p-5 border transition-all duration-200 hover:-translate-y-0.5 ${
-                    group.dark
-                      ? "bg-neutral-900 border-neutral-900 shadow-md shadow-neutral-950/10 hover:shadow-lg hover:shadow-neutral-950/20"
-                      : "bg-white border-neutral-100 shadow-sm hover:shadow-md"
-                  }`}
-                >
-                  <h4 className={`text-[10px] font-bold uppercase tracking-wider ${group.dark ? "text-neutral-400" : "text-primary"}`}>
-                    {group.title}
-                  </h4>
-                  {group.items.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {group.items.map((tool) => (
-                        <SkillTag
-                          onClick={() => handleSkillTagClick(tool)}
-                          key={tool}
-                          label={tool}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className={`mt-3 text-xs font-medium ${group.dark ? "text-neutral-500" : "text-neutral-400"}`}>
-                      No tools listed.
-                    </p>
-                  )}
-                </article>
-              ))}
+          {/* Tech Stacks Section — bento grid, alternating wide/narrow cells */}
+          {/* --- Updated Tech Stacks Section --- */}
+<section
+  id="tech-stacks"
+  data-about-reveal
+  className="scroll-mt-24 translate-y-5 opacity-0 transition-all duration-700 ease-out"
+>
+  <SectionBadge label="What I Use" />
+  {/* Force uniform grid: 1 col mobile, 2 col tablet, 3 col desktop */}
+  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {isLoading ? (
+      <>
+        <SkeletonCard className="h-40" />
+        <SkeletonCard className="h-40" />
+        <SkeletonCard className="h-40" />
+      </>
+    ) : (
+      groupedTools.map((group, index) => (
+        <motion.div
+          key={group.title}
+          custom={index}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={fadeUpItemVariants}
+          whileHover={{ y: -3 }}
+        >
+          <BentoCard dark={group.dark} className="h-full">
+            <div className="flex h-full flex-col p-5">
+              <h4 className={`text-[10px] font-bold uppercase tracking-wider ${group.dark ? "text-neutral-400" : "text-primary"}`}>
+                {group.title}
+              </h4>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {group.items.map((tool) => (
+                  <SkillTag key={tool} onClick={() => handleSkillTagClick(tool)} label={tool} />
+                ))}
+              </div>
             </div>
-          </section>
+          </BentoCard>
+        </motion.div>
+      ))
+    )}
+  </div>
+</section>
 
-          {/* Specializations Section */}
+          {/* --- Updated Specializations Section --- */}
           <section
             id="specializations"
             data-about-reveal
             className="scroll-mt-24 translate-y-5 opacity-0 transition-all duration-700 ease-out"
           >
             <SectionBadge label="What I Can Offer" />
-            <h3 className="text-xl font-bold tracking-tight text-neutral-900 mb-6 mt-2">Core Specializations</h3>
-            {specializationList.length === 0 ? (
-              <article className="rounded-xl bg-white p-5 border border-neutral-100">
-                <p className="text-xs text-neutral-500">No specializations yet.</p>
-              </article>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {specializationList.map((item, index) => (
-                  <article
-                    key={item.id || `${item.title}-${index}`}
-                    className="rounded-2xl border border-primary bg-white p-5 shadow-[4px_4px_0px_0px_var(--color-primary)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_var(--color-primary)] active:translate-y-0 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="mb-4 inline-flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-sm">
-                        ✦
+            <h3 className="mb-6 mt-2 text-xl font-bold tracking-tight text-neutral-900">Core Specializations</h3>
+            
+            {/* Force uniform grid matching the tech stack layout */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {isLoading ? (
+                <>
+                  <SkeletonCard className="h-48" />
+                  <SkeletonCard className="h-48" />
+                  <SkeletonCard className="h-48" />
+                </>
+              ) : specializationList.map((item, index) => (
+                <motion.div
+                  key={item.id || index}
+                  custom={index}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true, amount: 0.25 }}
+                  variants={fadeUpItemVariants}
+                  whileHover={{ y: -3 }}
+                >
+                  <BentoCard className="h-full">
+                    <div className="flex h-full flex-col justify-between p-5">
+                      <div>
+                        <div className="mb-4 inline-flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold">✦</div>
+                        <h4 className="text-sm font-bold text-neutral-900">{item.title}</h4>
+                        <p className="mt-2 text-xs text-neutral-500 line-clamp-3">{item.description}</p>
                       </div>
-                      <h4 className="text-sm font-bold text-neutral-900 tracking-tight">{item.title}</h4>
-                      <p className="mt-2 text-xs leading-relaxed text-neutral-500 font-medium text-justify">{item.description}</p>
+                      <button 
+                        onClick={() => pageContext?.setCurrentPage("works")} 
+                        className="mt-5 inline-flex items-center gap-1 text-[10px] font-bold uppercase text-primary"
+                      >
+                        Related Works <ArrowUpRight size={12} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => pageContext?.setCurrentPage("works")}
-                      className="mt-5 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary transition-all duration-200 hover:translate-x-0.5"
+                  </BentoCard>
+                </motion.div>
+              ))}
+            </div>
+          </section>
+
+          {/* Specializations Section — bento grid, first cell featured */}
+          <section
+            id="specializations"
+            data-about-reveal
+            className="scroll-mt-24 translate-y-5 opacity-0 transition-all duration-700 ease-out"
+          >
+            <SectionBadge label="What I Can Offer" />
+            <h3 className="mb-6 mt-2 text-xl font-bold tracking-tight text-neutral-900">Core Specializations</h3>
+
+            {isLoading ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12">
+                <SkeletonCard className="h-48 lg:col-span-8" />
+                <SkeletonCard className="h-48 lg:col-span-4" />
+                <SkeletonCard className="h-48 lg:col-span-4" />
+                <SkeletonCard className="h-48 lg:col-span-4" />
+                <SkeletonCard className="h-48 lg:col-span-4" />
+              </div>
+            ) : specializationList.length === 0 ? (
+              <BentoCard>
+                <div className="p-5">
+                  <p className="text-xs text-neutral-500">No specializations yet.</p>
+                </div>
+              </BentoCard>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12">
+                {specializationList.map((item, index) => {
+                  const isFeatured = index === 0 && specializationList.length > 2;
+                  return (
+                    <motion.div
+                      key={item.id || `${item.title}-${index}`}
+                      custom={index}
+                      initial="hidden"
+                      whileInView="visible"
+                      viewport={{ once: true, amount: 0.25 }}
+                      variants={fadeUpItemVariants}
+                      whileHover={{ y: -3 }}
+                      className={`sm:col-span-2 ${isFeatured ? "lg:col-span-8" : "lg:col-span-4"}`}
                     >
-                      Related Works <ArrowUpRight size={12} />
-                    </button>
-                  </article>
-                ))}
+                      <BentoCard>
+                        <div className="flex h-full flex-col justify-between p-5">
+                          <div>
+                            <motion.div
+                              initial={{ scale: 0, rotate: -45 }}
+                              whileInView={{ scale: 1, rotate: 0 }}
+                              viewport={{ once: true, amount: 0.6 }}
+                              transition={{ duration: 0.4, ease: "easeOut", delay: Math.min(index, 8) * 0.06 + 0.1 }}
+                              className="mb-4 inline-flex size-8 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary"
+                            >
+                              ✦
+                            </motion.div>
+                            <h4 className="text-sm font-bold tracking-tight text-neutral-900">{item.title}</h4>
+                            <p className="mt-2 text-xs font-medium leading-relaxed text-neutral-500 text-justify">{item.description}</p>
+                          </div>
+                          <motion.button
+                            type="button"
+                            onClick={() => pageContext?.setCurrentPage("works")}
+                            whileHover={{ x: 3 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="mt-5 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary transition-all duration-200"
+                          >
+                            Related Works <ArrowUpRight size={12} />
+                          </motion.button>
+                        </div>
+                      </BentoCard>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -812,43 +1055,55 @@ export default function AboutPage() {
       </div>
 
       {/* Modal Image Preview */}
-      {activeProofUrl ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Attachment preview"
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-neutral-950/60 backdrop-blur-xs px-4 animate-fade-in"
-          onClick={() => setActiveProofUrl(null)}
-        >
-          <div
-            className="relative w-full max-w-[860px] overflow-hidden rounded-2xl bg-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {activeProofUrl ? (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Attachment preview"
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-neutral-950/60 px-4 backdrop-blur-xs animate-fade-in"
+            onClick={() => setActiveProofUrl(null)}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={modalOverlayVariants}
           >
-            <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
-              <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                Attachment Preview
-              </h3>
-              <button
-                type="button"
-                onClick={() => setActiveProofUrl(null)}
-                className="inline-flex size-7 items-center justify-center rounded-full border border-neutral-200 text-neutral-400 hover:bg-neutral-50 hover:text-neutral-600 active:scale-90 transition-all"
-                aria-label="Close proof preview"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="relative h-[60vh] min-h-[320px] bg-neutral-50">
-              <img
-                src={activeProofUrl}
-                alt="Experience proof"
-                className="h-full w-full object-contain select-none"
-                draggable={false}
-                onContextMenu={(e) => e.preventDefault()}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+            <motion.div
+              className="relative w-full max-w-[860px] overflow-hidden rounded-2xl border border-neutral-200/50 bg-white/95 shadow-2xl backdrop-blur-xl"
+              onClick={(e) => e.stopPropagation()}
+              variants={modalPanelVariants}
+            >
+              <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                  Attachment Preview
+                </h3>
+                <motion.button
+                  type="button"
+                  onClick={() => setActiveProofUrl(null)}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.9 }}
+                  className="inline-flex size-7 items-center justify-center rounded-full border border-neutral-200 text-neutral-400 transition-colors hover:bg-neutral-50 hover:text-neutral-600"
+                  aria-label="Close proof preview"
+                >
+                  ✕
+                </motion.button>
+              </div>
+              <div className="relative h-[60vh] min-h-[320px] bg-neutral-50">
+                <motion.img
+                  src={activeProofUrl}
+                  alt="Experience proof"
+                  className="h-full w-full select-none object-contain"
+                  draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
+                  initial={{ opacity: 0, scale: 1.02 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </section>
   );
 }

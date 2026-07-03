@@ -160,7 +160,9 @@ export default function RootLayoutClient({ children }: RootLayoutClientProps) {
     <PageContext.Provider value={{ currentPage, setCurrentPage, selectedProjectId, setSelectedProjectId }}>
       <div className="min-h-screen bg-fairy-gradient font-sans dark:bg-black">
         <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
-        <div className="flex w-full justify-center">
+        
+        {/* Added pt-[112px] to create space for the fixed navbar */}
+        <div className="flex w-full justify-center pt-[112px]">
           <div className="w-full max-w-[1440px]">
             {children}
             <Footer

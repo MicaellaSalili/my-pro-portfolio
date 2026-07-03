@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../lib/supabase";
 import SkillTag from "./SkillTag";
 import {
@@ -59,8 +60,21 @@ const defaultCategories = [
 
 const projectTypeOptions = ["All", "Personal", "Client", "School"];
 
-let worksProjectsCache: ProjectCardData[] | null = null;
-let worksProjectsPending: Promise<ProjectCardData[]> | null = null;
+// --- Grid entrance animation ---
+// Cards fade + rise in with a slight stagger so a fresh filter selection or
+// initial load reads as a deliberate reveal instead of an abrupt swap.
+const gridStagger = {
+  hidden: { opacity: 1 },
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+
+const cardFadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
+  exit: { opacity: 0, y: -12, transition: { duration: 0.2, ease: "easeIn" } },
+};
+
+const WORKS_CACHE_KEY = "portfolio_works_cache_v1";
 
 function parseProjectCategoryTechStack(value: string | null) {
   if (!value) {
@@ -87,55 +101,49 @@ function parseProjectCategoryTechStack(value: string | null) {
     .filter(Boolean);
 }
 
-async function fetchWorksProjectsFromServer(): Promise<ProjectCardData[]> {
-  const { data } = await supabase
-    .from("projects")
-    .select("id, title, description, thumbnail_url, project_type, category, live_demo_url, github_repo_url, project_skills(skill_id, tech_stack(skill_name))")
-    .order("created_at", { ascending: false });
+// --- Global Prefetch Utility ---
+// Cache-First Fetching Architecture (matches HomePage.tsx): the page reads
+// localStorage synchronously on mount for an instant paint, then this
+// function hits Supabase in the background; state is only patched in if the
+// fresh payload actually differs from what was cached. Only the columns
+// actually rendered on this page are selected, keeping the payload small.
+export async function prefetchWorksPageData(): Promise<ProjectCardData[] | null> {
+  try {
+    const { data } = await supabase
+      .from("projects")
+      .select("id, title, description, thumbnail_url, project_type, category, live_demo_url, github_repo_url, project_skills(skill_id, tech_stack(skill_name))")
+      .order("created_at", { ascending: false });
 
-  return (data as ProjectRow[] | null)?.map((project) => {
-    const relatedSkills = (project.project_skills || [])
-      .map((item) => item.tech_stack?.skill_name?.trim() || "")
-      .filter(Boolean);
+    const freshData: ProjectCardData[] = (data as ProjectRow[] | null)?.map((project) => {
+      const relatedSkills = (project.project_skills || [])
+        .map((item) => item.tech_stack?.skill_name?.trim() || "")
+        .filter(Boolean);
 
-    const tags = relatedSkills.length > 0 ? relatedSkills : parseProjectCategoryTechStack(project.category);
+      const tags = relatedSkills.length > 0 ? relatedSkills : parseProjectCategoryTechStack(project.category);
 
-    return {
-      id: project.id,
-      title: project.title || "Untitled Project",
-      description: project.description || "No description available.",
-      thumbnailUrl: project.thumbnail_url || "",
-      projectType: project.project_type,
-      techStack: tags,
-      category: project.category,
-      liveDemoUrl: project.live_demo_url,
-      githubRepoUrl: project.github_repo_url,
-      project_skills: project.project_skills || [],
-    };
-  }) || [];
-}
+      return {
+        id: project.id,
+        title: project.title || "Untitled Project",
+        description: project.description || "No description available.",
+        thumbnailUrl: project.thumbnail_url || "",
+        projectType: project.project_type,
+        techStack: tags,
+        category: project.category,
+        liveDemoUrl: project.live_demo_url,
+        githubRepoUrl: project.github_repo_url,
+        project_skills: project.project_skills || [],
+      };
+    }) || [];
 
-export function prefetchWorksPageData(): Promise<ProjectCardData[]> {
-  if (worksProjectsCache) {
-    return Promise.resolve(worksProjectsCache);
-  }
-
-  if (worksProjectsPending) {
-    return worksProjectsPending;
-  }
-
-  const request = (async () => {
-    try {
-      const projects = await fetchWorksProjectsFromServer();
-      worksProjectsCache = projects;
-      return projects;
-    } finally {
-      worksProjectsPending = null;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(WORKS_CACHE_KEY, JSON.stringify(freshData));
     }
-  })();
 
-  worksProjectsPending = request;
-  return request;
+    return freshData;
+  } catch (error) {
+    console.error("Failed to prefetch works data:", error);
+    return null;
+  }
 }
 
 function normalizeProjectType(value: string | null) {
@@ -147,6 +155,23 @@ function toProjectTypeValue(label: string) {
   if (label === "Client") return "Client Project";
   if (label === "School") return "School Project";
   return label;
+}
+
+function WorksProjectCardSkeleton() {
+  return (
+    <div className="flex h-full w-full animate-pulse flex-col overflow-hidden rounded-[20px] border border-neutral-200/60 bg-white">
+      <div className="aspect-video w-full shrink-0 bg-neutral-200/70" />
+      <div className="flex flex-1 flex-col gap-3 px-5 pt-5 pb-4 sm:px-6 md:px-8 md:pb-5">
+        <div className="flex gap-2">
+          <div className="h-[26px] w-16 rounded-full bg-neutral-200/70" />
+          <div className="h-[26px] w-16 rounded-full bg-neutral-200/70" />
+        </div>
+        <div className="h-6 w-4/5 rounded-md bg-neutral-200/70" />
+        <div className="h-4 w-full rounded-md bg-neutral-200/70" />
+        <div className="h-4 w-2/3 rounded-md bg-neutral-200/70" />
+      </div>
+    </div>
+  );
 }
 
 function ProjectImageIcon() {
@@ -282,12 +307,12 @@ export default function WorksPage({
   onOpenProjectDetails: (projectId: string) => void;
 }) {
   const pageRef = useRef<HTMLElement | null>(null);
-  const [projects, setProjects] = useState<ProjectCardData[]>(worksProjectsCache || []);
+  const [projects, setProjects] = useState<ProjectCardData[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [selectedProjectType, setSelectedProjectType] = useState<string>("All");
   const [selectedTechStacks, setSelectedTechStacks] = useState<string[]>([]);
   const [techSearchQuery, setTechSearchQuery] = useState<string>("");
-  const [hasFetchedProjects, setHasFetchedProjects] = useState(Boolean(worksProjectsCache));
+  const [isLoading, setIsLoading] = useState(true);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   function applyTechFilter(skill: string) {
@@ -365,34 +390,30 @@ export default function WorksPage({
     };
   }, []);
 
+  // Cache-First Fetching Architecture (same pattern as HomePage.tsx):
+  // read localStorage synchronously on mount so the grid paints instantly
+  // for a returning visitor, then revalidate against Supabase in the
+  // background and only swap in the fresh payload if it actually changed.
   useEffect(() => {
-    let isUnmounted = false;
+    let isMounted = true;
 
-    async function fetchProjects() {
-      try {
-        const cachedProjects = worksProjectsCache;
-        if (cachedProjects) {
-          setProjects(cachedProjects);
-          setHasFetchedProjects(true);
-          return;
-        }
-
-        const mappedProjects = await prefetchWorksPageData();
-        if (!isUnmounted) {
-          setProjects(mappedProjects);
-        }
-      } finally {
-        if (!isUnmounted) {
-          setHasFetchedProjects(true);
-        }
-      }
+    const cached = window.localStorage.getItem(WORKS_CACHE_KEY);
+    if (cached) {
+      setProjects(JSON.parse(cached));
+      setIsLoading(false);
     }
 
-    void fetchProjects();
+    prefetchWorksPageData().then((freshData) => {
+      if (isMounted && freshData) {
+        const freshString = JSON.stringify(freshData);
+        if (freshString !== cached) {
+          setProjects(freshData);
+        }
+        if (!cached) setIsLoading(false);
+      }
+    });
 
-    return () => {
-      isUnmounted = true;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const categories = useMemo(() => {
@@ -641,26 +662,56 @@ export default function WorksPage({
             </button>
           </div>
 
-          {hasFetchedProjects && filteredProjects.length === 0 ? (
-            <div className="flex min-h-[325px] items-center justify-center text-xl font-semibold text-neutral-400">
-              No projects found.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-10 xl:grid-cols-2 xl:auto-rows-fr">
-              {filteredProjects.map((project) => (
-                <div key={project.id} className="flex">
-                  <WorksProjectCard
-                    project={project}
-                    onOpenProjectDetails={onOpenProjectDetails}
-                    onClickSkillTag={(skill) => {
-                      queueWorksTechFilter(skill);
-                      applyTechFilter(skill);
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            {isLoading && projects.length === 0 ? (
+              <motion.div
+                key="skeleton"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                className="grid grid-cols-1 gap-10 xl:grid-cols-2 xl:auto-rows-fr"
+              >
+                {[0, 1, 2, 3].map((idx) => (
+                  <div key={idx} className="flex">
+                    <WorksProjectCardSkeleton />
+                  </div>
+                ))}
+              </motion.div>
+            ) : !isLoading && filteredProjects.length === 0 ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex min-h-[325px] items-center justify-center text-xl font-semibold text-neutral-400"
+              >
+                No projects found.
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`grid-${selectedCategory}-${selectedProjectType}-${selectedTechStacks.join(",")}`}
+                variants={gridStagger}
+                initial="hidden"
+                animate="show"
+                exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                className="grid grid-cols-1 gap-10 xl:grid-cols-2 xl:auto-rows-fr"
+              >
+                {filteredProjects.map((project) => (
+                  <motion.div key={project.id} layout variants={cardFadeUp} className="flex">
+                    <WorksProjectCard
+                      project={project}
+                      onOpenProjectDetails={onOpenProjectDetails}
+                      onClickSkillTag={(skill) => {
+                        queueWorksTechFilter(skill);
+                        applyTechFilter(skill);
+                      }}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Tech Stack Right Sidebar */}
