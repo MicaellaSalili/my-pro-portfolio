@@ -313,7 +313,7 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
         {isLoading ? <HeroSkeleton /> : (
           <div className="mx-auto flex max-w-[1280px] flex-col-reverse items-center gap-12 lg:flex-row-reverse lg:justify-center lg:gap-20 w-full">
             <motion.div initial={{ opacity: 0, scale: 0.9, rotate: -2 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ duration: 0.8, type: "spring" }} className="relative flex aspect-square w-full max-w-[380px] shrink-0 flex-col overflow-hidden bento-card p-2 sm:max-w-[420px]">
-              <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="h-full w-full flex flex-col">
+              <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" as const }} className="h-full w-full flex flex-col">
                 <div className="flex h-12 w-full shrink-0 items-center gap-2 px-4 border-b border-neutral-200/40">
                   <span className="block h-3 w-3 rounded-full bg-[#ef655d]" /><span className="block h-3 w-3 rounded-full bg-[#e7bf45]" /><span className="block h-3 w-3 rounded-full bg-[#62bd58]" />
                 </div>
@@ -373,7 +373,7 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
                   const isBig = getBentoWidth(idx, projects.length) >= 2;
                   return (
                     <motion.article key={project.id} whileHover="hover" onClick={() => onOpenProjectDetails(project.id)} className={`relative w-full h-full rounded-[2rem] overflow-hidden cursor-pointer group bg-neutral-100 shadow-lg border border-neutral-200/50 ${spanClass}`}>
-                      {project.thumbnail_url ? <motion.img variants={{ hover: { scale: 1.05 } }} transition={{ duration: 0.6, ease: "easeOut" }} src={project.thumbnail_url} alt={project.title} className="absolute inset-0 h-full w-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-neutral-300"><span className="font-medium text-lg">No Preview Available</span></div>}
+                      {project.thumbnail_url ? <motion.img variants={{ hover: { scale: 1.05 } }} transition={{ duration: 0.6, ease: "easeOut" as const }} src={project.thumbnail_url} alt={project.title} className="absolute inset-0 h-full w-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-neutral-300"><span className="font-medium text-lg">No Preview Available</span></div>}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80" />
                       <motion.div variants={{ hover: { y: 0 } }} initial={{ y: 10 }} transition={{ duration: 0.4, type: "spring", stiffness: 100 }} className="absolute inset-x-4 bottom-4 md:inset-x-6 md:bottom-6 max-h-[calc(100%-2rem)] md:max-h-[calc(100%-3rem)] overflow-hidden p-4 md:p-6 rounded-[1.5rem] bg-white/10 backdrop-blur-xl border border-white/20 flex flex-col">
                         <div className="flex justify-between items-start gap-3 mb-2 md:mb-3">

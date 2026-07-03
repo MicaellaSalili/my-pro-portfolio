@@ -35,7 +35,7 @@ const fadeUpItemVariants = {
   visible: (i: number = 0) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.45, ease: "easeOut", delay: Math.min(i, 8) * 0.06 },
+    transition: { duration: 0.45, ease: "easeOut" as const, delay: Math.min(i, 8) * 0.06 },
   }),
 };
 
@@ -48,14 +48,14 @@ const staggerContainerVariants = {
 
 const modalOverlayVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.2, ease: "easeOut" } },
-  exit: { opacity: 0, transition: { duration: 0.15, ease: "easeIn" } },
+  visible: { opacity: 1, transition: { duration: 0.2, ease: "easeOut" as const } },
+  exit: { opacity: 0, transition: { duration: 0.15, ease: "easeIn" as const } },
 };
 
 const modalPanelVariants = {
   hidden: { opacity: 0, scale: 0.94, y: 12 },
-  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" } },
-  exit: { opacity: 0, scale: 0.96, y: 8, transition: { duration: 0.15, ease: "easeIn" } },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" as const } },
+  exit: { opacity: 0, scale: 0.96, y: 8, transition: { duration: 0.15, ease: "easeIn" as const } },
 };
 
 type ProfileData = {
@@ -648,7 +648,7 @@ export default function AboutPage() {
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.6 }}
-                transition={{ duration: 0.45, ease: "easeOut", delay: 0.15 }}
+                transition={{ duration: 0.45, ease: "easeOut" as const, delay: 0.15 }}
               >
                 <motion.button
                   type="button"
@@ -1025,7 +1025,7 @@ export default function AboutPage() {
                               initial={{ scale: 0, rotate: -45 }}
                               whileInView={{ scale: 1, rotate: 0 }}
                               viewport={{ once: true, amount: 0.6 }}
-                              transition={{ duration: 0.4, ease: "easeOut", delay: Math.min(index, 8) * 0.06 + 0.1 }}
+                              transition={{ duration: 0.4, ease: "easeOut" as const, delay: Math.min(index, 8) * 0.06 + 0.1 }}
                               className="mb-4 inline-flex size-8 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary"
                             >
                               ✦
@@ -1097,7 +1097,7 @@ export default function AboutPage() {
                   onContextMenu={(e) => e.preventDefault()}
                   initial={{ opacity: 0, scale: 1.02 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+                  transition={{ duration: 0.3, ease: "easeOut" as const, delay: 0.1 }}
                 />
               </div>
             </motion.div>

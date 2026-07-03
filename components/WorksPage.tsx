@@ -71,7 +71,7 @@ const gridStagger = {
 const cardFadeUp = {
   hidden: { opacity: 0, y: 24 },
   show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
-  exit: { opacity: 0, y: -12, transition: { duration: 0.2, ease: "easeIn" } },
+  exit: { opacity: 0, y: -12, transition: { duration: 0.2, ease: "easeIn" as const } },
 };
 
 const WORKS_CACHE_KEY = "portfolio_works_cache_v1";
