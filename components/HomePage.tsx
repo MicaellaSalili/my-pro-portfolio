@@ -23,8 +23,9 @@ interface ProjectData {
   category?: string | null;
   live_demo_url?: string;
   github_repo_url?: string;
+  // Update this section:
   project_skills?: {
-    tech_stack?: { skill_name?: string | null } | null;
+    tech_stack?: { skill_name?: string | null }[] | null; // Changed from object to array
   }[];
 }
 
@@ -383,9 +384,18 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
                         <p className={`text-sm font-medium leading-relaxed text-white/80 mb-4 ${isBig ? "line-clamp-2" : "line-clamp-1"}`}>{project.description}</p>
                         <div className="flex flex-wrap gap-2 mt-auto">
                           {project.project_skills?.slice(0, isBig ? 3 : 2).map((skill, skillIdx) => {
-                            const name = skill.tech_stack?.skill_name;
+                            // Update this line to access the first item of the tech_stack array:
+                            const name = skill.tech_stack?.[0]?.skill_name; 
                             if (!name) return null;
-                            return <button key={`${project.id}-${name}-${skillIdx}`} onClick={(e) => { e.stopPropagation(); queueWorksTechFilter(name); setCurrentPage("works"); }} className="px-3 py-1.5 rounded-full bg-black/40 border border-white/10 text-white/90 text-[10px] font-bold uppercase tracking-wider hover:bg-primary transition-colors backdrop-blur-md">{name}</button>;
+                            return (
+                              <button 
+                                key={`${project.id}-${name}-${skillIdx}`} 
+                                onClick={(e) => { e.stopPropagation(); queueWorksTechFilter(name); setCurrentPage("works"); }} 
+                                className="..."
+                              >
+                                {name}
+                              </button>
+                            );
                           })}
                         </div>
                       </motion.div>
