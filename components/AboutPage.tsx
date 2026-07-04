@@ -7,7 +7,7 @@ import { PageContext } from "./RootLayoutClient";
 import { queueWorksTechFilter } from "../lib/worksTechFilter";
 import { ABOUT_SECTION_EVENT, ABOUT_SECTION_STORAGE_KEY } from "../lib/aboutSectionNav";
 import SkillTag from "./SkillTag";
-import { Download, ArrowUpRight } from "lucide-react";
+import { Download, ArrowUpRight, Menu } from "lucide-react";
 
 const sidebarItems = [
   { id: "profile", label: "Profile" },
@@ -386,6 +386,7 @@ export default function AboutPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeSidebarItem, setActiveSidebarItem] = useState(sidebarItems[0].id);
   const [activeProofUrl, setActiveProofUrl] = useState<string | null>(null);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   // Cache-First Fetching Architecture (same pattern as HomePage.tsx):
   // read localStorage synchronously on mount so the page paints instantly
@@ -554,29 +555,43 @@ export default function AboutPage() {
   return (
     <section ref={pageRef} className="w-full bg-transparent px-4 pt-1 pb-12 sm:px-6 lg:px-12 xl:px-20">
 
-      {/* Mobile Swipe Segment Tabs */}
-      <div className="sticky top-0 z-50 -mx-4 mb-6 border-b border-neutral-200/50 bg-white/75 px-4 py-2.5 backdrop-blur-md lg:hidden">
-        <div
-          ref={scrollTabsRef}
-          className="hide-scrollbar flex items-center gap-2 overflow-x-auto scroll-smooth"
+      {/* Mobile Navigation Trigger */}
+      <div className="sticky top-0 z-40 -mx-4 mb-6 flex items-center justify-start px-4 py-3 lg:hidden">
+        <button
+          onClick={() => setIsMobileNavOpen(true)}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200 bg-white/50 text-neutral-600 shadow-sm backdrop-blur-md transition-all hover:bg-white"
         >
-          {sidebarItems.map((item) => (
-            <button
-              key={`tab-item-${item.id}`}
-              id={`tab-${item.id}`}
-              type="button"
-              onClick={() => goToSection(item.id, true)}
-              className={`h-9 shrink-0 rounded-full px-4 text-xs font-bold tracking-wide transition-all duration-200 ${
-                activeSidebarItem === item.id
-                  ? "bg-primary text-white shadow-sm shadow-primary/20"
-                  : "border border-neutral-200/60 bg-neutral-50/80 text-neutral-600 hover:border-neutral-300"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+          <Menu size={18} />
+        </button>
       </div>
+      {/* Mobile Navigation Drawer */}
+      {isMobileNavOpen && (
+        <div className="fixed inset-0 z-[60] flex justify-end bg-neutral-950/40 backdrop-blur-xs lg:hidden animate-fade-in">
+          <div className="h-full w-full max-w-[280px] bg-white p-6 shadow-2xl animate-slide-in-right">
+            <div className="mb-8 flex items-center justify-between">
+              <h3 className="font-bold">Navigation</h3>
+              <button onClick={() => setIsMobileNavOpen(false)} className="text-xl">✕</button>
+            </div>
+            <div className="space-y-2">
+              {sidebarItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    goToSection(item.id, true);
+                    setIsMobileNavOpen(false);
+                  }}
+                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-semibold ${
+                    activeSidebarItem === item.id ? "bg-primary text-white" : "text-neutral-600"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button className="flex-1" onClick={() => setIsMobileNavOpen(false)} />
+        </div>
+      )}
 
       <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start gap-12 lg:flex-row lg:gap-16">
 
