@@ -547,13 +547,21 @@ export default function HomePage({ setCurrentPage, onOpenProjectDetails }: HomeP
       <RevealOnScroll threshold={0.15}>
         <section className="w-full px-4 py-16 sm:px-6 md:px-10 lg:px-[70px]">
           <div className="mx-auto max-w-[1300px]">
-            <div className="mb-10 flex items-end justify-between border-b-2 border-black pb-6">
+            <div className="mb-10 flex flex-col items-start gap-5 sm:flex-row sm:items-end sm:justify-between border-b-2 border-black pb-6">
               <div>
                 <span className="mb-2 inline-block text-[11px] font-bold uppercase tracking-[0.25em] text-[#A78BFA]">$ git log --featured --projects</span>
                 <h2 className="text-black text-3xl md:text-4xl tracking-tight mb-2">Featured Works</h2>
                 <p className="text-secondary font-medium text-sm">A selection of my latest technical projects.</p>
               </div>
-              <button onClick={() => setCurrentPage("works")} className="group flex items-center gap-2 rounded-xl border-2 border-black bg-white px-4 py-2 text-sm font-bold uppercase tracking-wider text-black shadow-[3px_3px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_0_#000]">view --all <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-neutral-100 group-hover:bg-primary group-hover:text-white transition-colors"><ArrowUpRight size={14} /></span></button>
+              <button 
+                onClick={() => setCurrentPage("works")} 
+                className="group flex w-fit whitespace-nowrap items-center gap-2 rounded-xl border-2 border-black bg-white px-4 py-2 text-sm font-bold uppercase tracking-wider text-black shadow-[3px_3px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_0_#000]"
+              >
+                view --all 
+                <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-neutral-100 group-hover:bg-primary group-hover:text-white transition-colors">
+                  <ArrowUpRight size={14} />
+                </span>
+              </button>
             </div>
             {isLoading ? <div className="grid grid-cols-1 sm:grid-cols-3 auto-rows-[240px] sm:auto-rows-[260px] gap-6">{[0,1,2,3,4].map((idx) => <div key={idx} className={`w-full rounded-[2rem] skeleton-box ${getBentoSpanClass(idx, 5)}`} />)}</div> : (
               <div className="grid grid-cols-1 sm:grid-cols-3 auto-rows-[300px] sm:auto-rows-[260px] gap-6">
